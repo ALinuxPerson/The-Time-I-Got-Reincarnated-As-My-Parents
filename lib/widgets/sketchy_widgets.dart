@@ -349,10 +349,12 @@ class _LightbulbPainter extends CustomPainter {
       oldDelegate.cordHeight != cordHeight || oldDelegate.color != color;
 }
 
-/// Framed pixel/sketchbook scene illustration with crisp Stardew-style rendering.
+/// Framed pixel/sketchbook scene illustration with bounded desktop-safe sizing.
 class SketchImageFrame extends StatelessWidget {
   final String assetPath;
   final double aspectRatio;
+  final double maxWidth;
+  final double maxHeight;
   final Color borderColor;
   final bool showShadow;
   final Widget? fallback;
@@ -361,6 +363,8 @@ class SketchImageFrame extends StatelessWidget {
     super.key,
     required this.assetPath,
     this.aspectRatio = 16 / 9,
+    this.maxWidth = 420,
+    this.maxHeight = 236,
     this.borderColor = OmoriColors.ink,
     this.showShadow = true,
     this.fallback,
@@ -368,29 +372,37 @@ class SketchImageFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SketchBox(
-      padding: EdgeInsets.zero,
-      borderColor: borderColor,
-      showShadow: showShadow,
-      child: AspectRatio(
-        aspectRatio: aspectRatio,
-        child: Image.asset(
-          assetPath,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) =>
-              fallback ??
-              Container(
-                color: OmoriColors.warmPaper,
-                alignment: Alignment.center,
-                child: Text(
-                  '[ SCENE SKETCH ]',
-                  style: OmoriTheme.pixel(
-                    size: 16,
-                    color: OmoriColors.mutedInk,
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+        ),
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: SketchBox(
+            padding: EdgeInsets.zero,
+            borderColor: borderColor,
+            showShadow: showShadow,
+            child: Image.asset(
+              assetPath,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, _, _) =>
+                  fallback ??
+                  Container(
+                    color: OmoriColors.warmPaper,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '[ SCENE SKETCH ]',
+                      style: OmoriTheme.pixel(
+                        size: 16,
+                        color: OmoriColors.mutedInk,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+            ),
+          ),
         ),
       ),
     );

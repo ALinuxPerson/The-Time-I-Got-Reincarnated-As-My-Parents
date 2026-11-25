@@ -113,23 +113,27 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: OmoriColors.whiteSpace,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height - 64,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const HangingLightbulb(cordHeight: 36),
-                Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    const SketchImageFrame(
-                      assetPath: 'assets/images/title_banner.jpg',
-                      aspectRatio: 16 / 9,
-                    ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 460,
+                minHeight: MediaQuery.of(context).size.height - 64,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const HangingLightbulb(cordHeight: 28),
+                  Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      const SketchImageFrame(
+                        assetPath: 'assets/images/title_banner.jpg',
+                        aspectRatio: 16 / 9,
+                        maxWidth: 380,
+                        maxHeight: 214,
+                      ),
                     const SizedBox(height: 18),
                     Text(
                       'THE TIME I GOT\nREINCARNATED AS\nMY PARENTS',
@@ -230,15 +234,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               : OmoriColors.mutedInk,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          AiService.hasApiKey
-                              ? 'GEMINI AI CONNECTED (TAP TO EDIT)'
-                              : 'OFFLINE STORY ENGINE (TAP TO ADD GEMINI KEY)',
-                          style: OmoriTheme.pixel(
-                            size: 15,
-                            color: AiService.hasApiKey
-                                ? OmoriColors.dreamIndigo
-                                : OmoriColors.mutedInk,
+                        Flexible(
+                          child: Text(
+                            AiService.hasApiKey
+                                ? 'GEMINI AI CONNECTED (TAP TO EDIT)'
+                                : 'OFFLINE STORY ENGINE (TAP TO ADD GEMINI KEY)',
+                            overflow: TextOverflow.ellipsis,
+                            style: OmoriTheme.pixel(
+                              size: 15,
+                              color: AiService.hasApiKey
+                                  ? OmoriColors.dreamIndigo
+                                  : OmoriColors.mutedInk,
+                            ),
                           ),
                         ),
                       ],
@@ -248,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

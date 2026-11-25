@@ -6,6 +6,7 @@ import '../services/ai_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'ending_screen.dart';
+import 'live_roadmap_screen.dart';
 
 class GameScreen extends StatefulWidget {
   final int sessionId;
@@ -236,6 +237,28 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       ),
                       const Spacer(),
+                      IconButton(
+                        tooltip: 'Decision roadmap',
+                        icon: const Icon(
+                          Icons.map_outlined,
+                          color: OmoriColors.mutedInk,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => LiveRoadmapScreen(
+                                player: _player!,
+                                session: session,
+                                scenarios: _scenarios,
+                                milestoneAges: _milestoneAges,
+                                decisions: _decisions,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       IconButton(
                         tooltip: _showStats ? 'Hide stats' : 'Show stats',
                         icon: Icon(

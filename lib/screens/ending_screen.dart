@@ -166,9 +166,12 @@ class _EndingScreenState extends State<EndingScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
               children: [
                 if (isMoralBeat)
                   const HangingLightbulb(cordHeight: 48)
@@ -241,6 +244,8 @@ class _EndingScreenState extends State<EndingScreen> {
                 const SizedBox(height: 12),
               ],
             ),
+          ),
+        ),
           ),
         ),
       ),
