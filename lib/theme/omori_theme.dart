@@ -1,140 +1,154 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class OmoriColors {
-  static const Color whiteSpace = Color(0xFFFAFAFA);
-  static const Color paper = Color(0xFFFFFFFF);
-  static const Color ink = Color(0xFF111111);
-  static const Color mutedInk = Color(0xFF5C5C5C);
-  static const Color subtleLine = Color(0xFFE3E3E3);
-  static const Color redAccent = Color(0xFFC83737);
-  static const Color dreamIndigo = Color(0xFF5363D6);
-  static const Color pastelLavender = Color(0xFFF3F2FF);
-  static const Color warmPaper = Color(0xFFFDFBF6);
+  static const whiteSpace = Color(0xFFFAFAF7);
+  static const paper = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF171717);
+  static const mutedInk = Color(0xFF595959);
+  static const subtleLine = Color(0xFFD0D0CB);
+  static const accent = Color(0xFF9B2929);
+  static const redAccent = accent;
+  static const warmPaper = whiteSpace;
 }
 
 class OmoriTheme {
   static bool useSystemFallbackFonts = false;
-  static const double fontScale = 1.2;
+  static const double fontScale = 1;
+  static const motion = Duration(milliseconds: 150);
+  static const curve = Curves.easeOut;
+
+  // One small, body, and display size throughout the interface.
+  static double _size(double size) => size <= 17 ? 16 : (size <= 23 ? 20 : 28);
 
   static TextStyle hand({
-    double size = 18,
+    double size = 20,
     FontWeight weight = FontWeight.w400,
     Color color = OmoriColors.ink,
     double? height,
     double? letterSpacing,
   }) {
-    final scaledSize = size * fontScale;
-    final boldShadows = weight.value >= FontWeight.w700.value
-        ? <Shadow>[
-            Shadow(color: color, offset: const Offset(0.45, 0)),
-            Shadow(color: color, offset: const Offset(-0.2, 0.2)),
-          ]
-        : null;
-
-    if (useSystemFallbackFonts) {
-      return TextStyle(
-        fontSize: scaledSize,
-        fontWeight: weight,
-        color: color,
-        height: height ?? 1.35,
-        letterSpacing: letterSpacing,
-      );
-    }
-    return GoogleFonts.patrickHand(
-      fontSize: scaledSize,
+    final base = TextStyle(
+      fontSize: _size(size),
       fontWeight: weight,
       color: color,
-      height: height ?? 1.35,
+      height: height ?? 1.3,
       letterSpacing: letterSpacing,
-      shadows: boldShadows,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return base.copyWith(
+      fontFamily: useSystemFallbackFonts ? null : 'PatrickHand',
     );
   }
 
   static TextStyle pixel({
-    double size = 18,
+    double size = 20,
     Color color = OmoriColors.ink,
     double? letterSpacing,
   }) {
-    final scaledSize = size * fontScale;
-    if (useSystemFallbackFonts) {
-      return TextStyle(
-        fontFamily: 'monospace',
-        fontSize: scaledSize,
-        color: color,
-        letterSpacing: letterSpacing ?? 0.8,
-      );
-    }
-    return GoogleFonts.vt323(
-      fontSize: scaledSize,
+    final base = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: _size(size),
       color: color,
-      letterSpacing: letterSpacing ?? 0.8,
+      height: 1.2,
+      letterSpacing: letterSpacing ?? 0.6,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return base.copyWith(
+      fontFamily: useSystemFallbackFonts ? 'monospace' : 'VT323',
     );
   }
 
   static ThemeData build() {
+    const border = OutlineInputBorder(
+      borderRadius: BorderRadius.zero,
+      borderSide: BorderSide(color: OmoriColors.ink, width: 2),
+    );
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: OmoriColors.whiteSpace,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.macOS: _GradualFadePageTransitionsBuilder(),
-          TargetPlatform.iOS: _GradualFadePageTransitionsBuilder(),
-          TargetPlatform.android: _GradualFadePageTransitionsBuilder(),
-          TargetPlatform.linux: _GradualFadePageTransitionsBuilder(),
-          TargetPlatform.windows: _GradualFadePageTransitionsBuilder(),
-        },
+      splashFactory: NoSplash.splashFactory,
+      scrollbarTheme: const ScrollbarThemeData(
+        radius: Radius.zero,
+        thickness: WidgetStatePropertyAll(3),
+        thumbColor: WidgetStatePropertyAll(OmoriColors.subtleLine),
       ),
+      hoverColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       colorScheme: const ColorScheme.light(
         surface: OmoriColors.whiteSpace,
-        primary: OmoriColors.ink,
-        secondary: OmoriColors.dreamIndigo,
-        error: OmoriColors.redAccent,
+        primary: OmoriColors.accent,
+        secondary: OmoriColors.accent,
+        error: OmoriColors.accent,
         onSurface: OmoriColors.ink,
         onPrimary: OmoriColors.paper,
       ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.macOS: _InkTransition(),
+          TargetPlatform.iOS: _InkTransition(),
+          TargetPlatform.android: _InkTransition(),
+          TargetPlatform.linux: _InkTransition(),
+          TargetPlatform.windows: _InkTransition(),
+        },
+      ),
       textTheme: TextTheme(
-        headlineMedium: hand(size: 30, weight: FontWeight.w600),
-        titleLarge: hand(size: 24, weight: FontWeight.w600),
-        titleMedium: hand(size: 20, weight: FontWeight.w600),
-        bodyLarge: hand(size: 18),
+        headlineMedium: hand(size: 28),
+        titleLarge: hand(size: 28),
+        titleMedium: hand(size: 20),
+        bodyLarge: hand(size: 20),
         bodyMedium: hand(size: 16),
-        labelLarge: pixel(size: 20),
+        labelLarge: pixel(),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: OmoriColors.whiteSpace,
+        foregroundColor: OmoriColors.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          shape: const RoundedRectangleBorder(),
+          foregroundColor: OmoriColors.ink,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          shape: const RoundedRectangleBorder(),
+          textStyle: hand(size: 20),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: OmoriColors.whiteSpace,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: OmoriColors.paper,
         hintStyle: hand(size: 16, color: OmoriColors.mutedInk),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-        border: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: OmoriColors.ink, width: 2),
-        ),
-        enabledBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: OmoriColors.ink, width: 2),
-        ),
-        focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: OmoriColors.dreamIndigo, width: 2.5),
+        contentPadding: const EdgeInsets.all(14),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: const BorderSide(color: OmoriColors.accent, width: 3),
         ),
       ),
     );
   }
 }
 
-/// Gradual, candid cross-fade page transition replacing default slides.
-class _GradualFadePageTransitionsBuilder extends PageTransitionsBuilder {
-  const _GradualFadePageTransitionsBuilder();
+class _InkTransition extends PageTransitionsBuilder {
+  const _InkTransition();
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 620);
-
+  Duration get transitionDuration => OmoriTheme.motion;
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 520);
+  Duration get reverseTransitionDuration => OmoriTheme.motion;
 
   @override
   Widget buildTransitions<T>(
@@ -144,23 +158,9 @@ class _GradualFadePageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final fadeIn = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeInOutSine,
-      reverseCurve: Curves.easeInOutSine,
-    );
-    final fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: secondaryAnimation,
-        curve: Curves.easeInOutSine,
-      ),
-    );
     return FadeTransition(
-      opacity: fadeIn,
-      child: FadeTransition(
-        opacity: fadeOut,
-        child: child,
-      ),
+      opacity: CurvedAnimation(parent: animation, curve: OmoriTheme.curve),
+      child: child,
     );
   }
 }

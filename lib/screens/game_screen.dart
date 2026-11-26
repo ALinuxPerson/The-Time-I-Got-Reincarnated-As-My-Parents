@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/database_helper.dart';
 import '../models/models.dart';
@@ -20,6 +21,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   final _customChoiceController = TextEditingController();
   final _aiService = AiService();
+  final _dialogueScroll = ScrollController();
 
   Player? _player;
   GameSession? _session;
@@ -27,11 +29,10 @@ class _GameScreenState extends State<GameScreen> {
   List<int> _milestoneAges = [];
   List<DecisionWithDetails> _decisions = [];
 
+  double _hudScale = 1;
   bool _loading = true;
   bool _submitting = false;
-  bool _showStats = false; // Collapsed by default
   bool _optionsOpen = false; // Options drop down
-  bool _showCustomInput = false;
   bool _stageTextDone = false;
   DecisionWithDetails? _activeReactionBeat;
 
@@ -47,6 +48,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _customChoiceController.dispose();
+    _dialogueScroll.dispose();
     super.dispose();
   }
 
@@ -103,7 +105,6 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       _submitting = true;
       _optionsOpen = false;
-      _showCustomInput = false;
     });
 
     final db = DatabaseHelper.instance;
@@ -175,7 +176,6 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       _activeReactionBeat = null;
       _optionsOpen = false;
-      _showCustomInput = false;
       _stageTextDone = false;
     });
   }
@@ -214,186 +214,350 @@ class _GameScreenState extends State<GameScreen> {
     return 'neutral';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading || _player == null || _session == null) {
-      return const Scaffold(
-        backgroundColor: OmoriColors.whiteSpace,
-        body: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: OmoriColors.mutedInk,
+  Future<void> _openMenu() async {
+    if (_loading || _session == null) return;
+    final action = await showDialog<String>(
+      context: context,
+      barrierColor: OmoriColors.whiteSpace,
+      animationStyle: const AnimationStyle(
+        duration: OmoriTheme.motion,
+        reverseDuration: OmoriTheme.motion,
+        curve: OmoriTheme.curve,
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, updateMenu) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SketchBox(
+              fillColor: OmoriColors.paper.withValues(alpha: 0.92),
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
+                child: FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(_player!.name, style: OmoriTheme.hand(size: 28)),
+                      Text(
+                        'Age ${_displayAge()} ${_displayAge() == 1 ? 'year' : 'years'}',
+                        style: OmoriTheme.pixel(),
+                      ),
+                      if (MediaQuery.sizeOf(context).width >= 600) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'HUD scale ${(_hudScale * 100).round()}%',
+                          style: OmoriTheme.pixel(size: 16),
+                        ),
+                        Slider(
+                          value: _hudScale,
+                          min: 0.9,
+                          max: 1.3,
+                          divisions: 4,
+                          label: '${(_hudScale * 100).round()}%',
+                          onChanged: (value) {
+                            setState(() => _hudScale = value);
+                            updateMenu(() {});
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      LifeStatsStrip(
+                        happiness: _session!.happiness,
+                        health: _session!.health,
+                        smarts: _session!.smarts,
+                        ambition: _session!.ambition,
+                      ),
+                      const SizedBox(height: 24),
+                      FocusTraversalOrder(
+                        order: const NumericFocusOrder(0),
+                        child: SketchButton(
+                          label: 'Resume',
+                          inverted: true,
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FocusTraversalOrder(
+                        order: const NumericFocusOrder(1),
+                        child: SketchButton(
+                          label: 'Memories',
+                          onPressed: () => Navigator.pop(context, 'memories'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FocusTraversalOrder(
+                        order: const NumericFocusOrder(2),
+                        child: SketchButton(
+                          label: 'Return to title',
+                          onPressed: () => Navigator.pop(context, 'leave'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'leave') {
+      Navigator.pop(context);
+    } else if (action == 'memories') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => LiveRoadmapScreen(
+            player: _player!,
+            session: _session!,
+            scenarios: _scenarios,
+            milestoneAges: _milestoneAges,
+            decisions: _decisions,
           ),
         ),
       );
     }
+  }
 
-    final session = _session!;
-    final currentAge = _displayAge();
-    final currentMood = _currentMood();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final leftReserve = screenWidth >= 640 ? screenWidth * 0.25 : 0.0;
-
-    return Scaffold(
-      backgroundColor: OmoriColors.whiteSpace,
-      body: WindowSceneBackground(
-        age: currentAge,
-        mood: currentMood,
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(left: leftReserve),
-            child: Column(
-              children: [
-                // --- BORDERLESS TOP BAR (AGE + COLLAPSED ICON STATS + CLOSE) ---
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-                  child: Column(
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _player == null || _session == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(
+          MediaQuery.textScalerOf(context).scale(_hudScale),
+        ),
+      ),
+      child: CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _openMenu},
+        child: Scaffold(
+          body: LayoutBuilder(
+            builder: (context, bounds) {
+              final compact = bounds.maxWidth < 600;
+              return WindowSceneBackground(
+                age: _displayAge(),
+                mood: _currentMood(),
+                child: SafeArea(
+                  child: Stack(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: OmoriColors.paper.withValues(alpha: 0.72),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'age $currentAge · $currentMood',
-                              style: OmoriTheme.hand(
-                                size: 17,
-                                weight: FontWeight.w600,
-                                color: OmoriColors.ink,
-                              ),
+                      if (!compact)
+                        Positioned(
+                          right: 16,
+                          top: compact ? null : 16,
+                          bottom: compact ? 16 : null,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: SketchButton(
+                              key: const ValueKey('game_menu'),
+                              label: 'Menu',
+                              showPointer: false,
+                              padding: EdgeInsets.zero,
+                              onPressed: _openMenu,
                             ),
                           ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: 'Decision roadmap',
-                            icon: const Icon(
-                              Icons.map_outlined,
-                              color: OmoriColors.ink,
-                              size: 20,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => LiveRoadmapScreen(
-                                    player: _player!,
-                                    session: session,
-                                    scenarios: _scenarios,
-                                    milestoneAges: _milestoneAges,
-                                    decisions: _decisions,
+                        ),
+                      Positioned(
+                        left: compact ? 16 : null,
+                        right: compact ? 16 : 24,
+                        bottom: compact ? 16 : 24,
+                        width: compact
+                            ? null
+                            : (bounds.maxWidth * 0.52)
+                                  .clamp(340, 600)
+                                  .toDouble(),
+                        child: SizedBox(
+                          height: bounds.maxHeight * 0.32,
+                          child: SketchBox(
+                            key: const ValueKey('dialogue_panel'),
+                            fillColor: OmoriColors.ink,
+                            borderColor: OmoriColors.paper,
+                            strokeWidth: 3,
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Scrollbar(
+                                    controller: _dialogueScroll,
+                                    thumbVisibility: true,
+                                    child: SingleChildScrollView(
+                                      controller: _dialogueScroll,
+                                      child: AnimatedSwitcher(
+                                        duration: OmoriTheme.motion,
+                                        switchInCurve: OmoriTheme.curve,
+                                        switchOutCurve: OmoriTheme.curve,
+                                        child: _submitting
+                                            ? Text(
+                                                'Thinking...',
+                                                style: OmoriTheme.hand(
+                                                  color: OmoriColors.paper,
+                                                ),
+                                              )
+                                            : _activeReactionBeat != null
+                                            ? _buildReactionBeat(
+                                                _activeReactionBeat!,
+                                              )
+                                            : _hasMoreScenarios
+                                            ? _buildScenarioStage(
+                                                _scenarios[_nextScenarioIndex],
+                                              )
+                                            : Text(
+                                                'The rain returns.',
+                                                style: OmoriTheme.hand(
+                                                  color: OmoriColors.paper,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            tooltip: _showStats ? 'Hide stats' : 'Show stats',
-                            icon: Icon(
-                              _showStats
-                                  ? Icons.expand_less_rounded
-                                  : Icons.auto_awesome_outlined,
-                              color: OmoriColors.ink,
-                              size: 20,
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _stageTextDone && !_submitting
+                                          ? SketchButton(
+                                              label: _activeReactionBeat != null
+                                                  ? 'Continue'
+                                                  : _optionsOpen
+                                                  ? 'Read again'
+                                                  : 'What do you do?',
+                                              onPressed:
+                                                  _activeReactionBeat != null
+                                                  ? _continueFromReaction
+                                                  : _toggleChoices,
+                                            )
+                                          : const SizedBox(height: 48),
+                                    ),
+                                    if (compact) ...[
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 48,
+                                        height: 48,
+                                        child: SketchButton(
+                                          key: const ValueKey('game_menu'),
+                                          label: 'Menu',
+                                          showPointer: false,
+                                          padding: EdgeInsets.zero,
+                                          onPressed: _openMenu,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
                             ),
-                            onPressed: () =>
-                                setState(() => _showStats = !_showStats),
-                          ),
-                          IconButton(
-                            tooltip: 'Leave',
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: OmoriColors.ink,
-                              size: 20,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                      AnimatedCrossFade(
-                        duration: const Duration(milliseconds: 420),
-                        firstCurve: Curves.easeInOutSine,
-                        secondCurve: Curves.easeInOutSine,
-                        crossFadeState: _showStats
-                            ? CrossFadeState.showSecond
-                            : CrossFadeState.showFirst,
-                        firstChild: const SizedBox.shrink(),
-                        secondChild: Padding(
-                          padding: const EdgeInsets.only(top: 6, bottom: 8),
-                          child: _IconStatsRow(
-                            happiness: session.happiness,
-                            health: session.health,
-                            smarts: session.smarts,
-                            ambition: session.ambition,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
-                // --- CENTERED SCENARIO ALONE IN THE MIDDLE + DROPDOWN OPTIONS ---
-                Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 30,
-                        vertical: 24,
-                      ),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 580),
-                          switchInCurve: Curves.easeInOutSine,
-                          switchOutCurve: Curves.easeInOutSine,
-                          child: _submitting
-                              ? Center(
-                                  key: const ValueKey('stage_submitting'),
-                                  child: Text(
-                                    '...',
-                                    style: OmoriTheme.hand(
-                                      size: 26,
-                                      color: OmoriColors.mutedInk,
-                                    ),
-                                  ),
-                                )
-                              : _activeReactionBeat != null
-                              ? KeyedSubtree(
-                                  key: ValueKey(
-                                    'stage_reaction_${_activeReactionBeat!.decision.decisionId}',
-                                  ),
-                                  child: _buildReactionBeat(
-                                    _activeReactionBeat!,
-                                  ),
-                                )
-                              : _hasMoreScenarios
-                              ? KeyedSubtree(
-                                  key: ValueKey(
-                                    'stage_scenario_${_scenarios[_nextScenarioIndex].scenarioId}',
-                                  ),
-                                  child: _buildScenarioStage(
-                                    _scenarios[_nextScenarioIndex],
-                                  ),
-                                )
-                              : Text(
-                                  key: const ValueKey('stage_done'),
-                                  'Age ${session.targetAge} arrives.\nThe sky turns gray with rain...',
-                                  textAlign: TextAlign.center,
-                                  style: OmoriTheme.hand(size: 21, height: 1.5),
-                                ),
-                        ),
-                      ),
-                    ),
+  void _toggleChoices() {
+    setState(() => _optionsOpen = !_optionsOpen);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_dialogueScroll.hasClients) _dialogueScroll.jumpTo(0);
+    });
+  }
+
+  Widget _buildScenarioStage(Scenario scenario) {
+    return FocusTraversalGroup(
+      key: ValueKey('scenario_${scenario.scenarioId}_$_optionsOpen'),
+      policy: OrderedTraversalPolicy(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'AGE ${_displayAge()} ${_displayAge() == 1 ? 'YEAR' : 'YEARS'}',
+            style: OmoriTheme.pixel(size: 16, color: OmoriColors.paper),
+          ),
+          const SizedBox(height: 8),
+          if (!_optionsOpen) ...[
+            TypewriterText(
+              key: ValueKey(scenario.scenarioId),
+              text: scenario.description,
+              style: OmoriTheme.hand(color: OmoriColors.paper),
+              onCompleted: () {
+                if (mounted) setState(() => _stageTextDone = true);
+              },
+            ),
+          ] else ...[
+            for (int i = 0; i < scenario.presetChoices.length; i++) ...[
+              FocusTraversalOrder(
+                order: NumericFocusOrder(i.toDouble()),
+                child: SketchButton(
+                  label: scenario.presetChoices[i],
+                  onPressed: () => _submitDecision(scenario.presetChoices[i]),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(50),
+              child: SketchButton(
+                label: 'Write your own...',
+                onPressed: _writeChoice,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _writeChoice() async {
+    final choice = await showDialog<String>(
+      context: context,
+      barrierColor: OmoriColors.whiteSpace,
+      animationStyle: const AnimationStyle(
+        duration: OmoriTheme.motion,
+        reverseDuration: OmoriTheme.motion,
+        curve: OmoriTheme.curve,
+      ),
+      builder: (context) => Dialog(
+        child: SketchBox(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('What do you do?', style: OmoriTheme.hand()),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _customChoiceController,
+                  autofocus: true,
+                  minLines: 1,
+                  maxLines: 3,
+                  style: OmoriTheme.hand(),
+                  decoration: const InputDecoration(
+                    hintText: 'Say or do something...',
                   ),
+                ),
+                const SizedBox(height: 16),
+                SketchButton(
+                  label: 'Respond',
+                  onPressed: () {
+                    final text = _customChoiceController.text.trim();
+                    if (text.isNotEmpty) Navigator.pop(context, text);
+                  },
+                ),
+                const SizedBox(height: 8),
+                SketchButton(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
@@ -401,325 +565,23 @@ class _GameScreenState extends State<GameScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildScenarioStage(Scenario scenario) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Scenario title & typewriter narrative floating alone in White Space
-        Text(
-          scenario.title,
-          textAlign: TextAlign.center,
-          style: OmoriTheme.hand(
-            size: 24,
-            weight: FontWeight.w600,
-            color: OmoriColors.ink,
-          ),
-        ),
-        const SizedBox(height: 14),
-        TypewriterText(
-          key: ValueKey(scenario.scenarioId),
-          text: scenario.description,
-          textAlign: TextAlign.center,
-          style: OmoriTheme.hand(
-            size: 20,
-            height: 1.55,
-            color: OmoriColors.ink,
-          ),
-          onCompleted: () {
-            if (mounted) setState(() => _stageTextDone = true);
-          },
-        ),
-        const SizedBox(height: 36),
-
-        // Soft borderless dropdown trigger appears gradually after text finishes
-        GradualReveal(
-          visible: _stageTextDone,
-          delay: const Duration(milliseconds: 180),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () => setState(() => _optionsOpen = !_optionsOpen),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _optionsOpen ? 'hide choices' : 'what do you do?',
-                    style: OmoriTheme.hand(
-                      size: 18,
-                      color: OmoriColors.dreamIndigo,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    _optionsOpen
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: OmoriColors.dreamIndigo,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Dropdown options list (no borders, no lines, no dividers)
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 420),
-          firstCurve: Curves.easeInOutSine,
-          secondCurve: Curves.easeInOutSine,
-          crossFadeState: _optionsOpen
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          firstChild: const SizedBox.shrink(),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final choice in scenario.presetChoices) ...[
-                  _SoftChoiceTile(
-                    label: choice,
-                    onTap: () => _submitDecision(choice),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                if (!_showCustomInput)
-                  Center(
-                    child: TextButton(
-                      onPressed: () => setState(() => _showCustomInput = true),
-                      child: Text(
-                        'write your own...',
-                        style: OmoriTheme.hand(
-                          size: 17,
-                          color: OmoriColors.mutedInk,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _customChoiceController,
-                          maxLines: 3,
-                          autofocus: true,
-                          textAlign: TextAlign.center,
-                          style: OmoriTheme.hand(size: 18),
-                          decoration: InputDecoration(
-                            hintText: 'say or do anything...',
-                            filled: true,
-                            fillColor: OmoriColors.pastelLavender,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            TextButton(
-                              onPressed: () =>
-                                  setState(() => _showCustomInput = false),
-                              child: Text(
-                                'cancel',
-                                style: OmoriTheme.hand(
-                                  size: 17,
-                                  color: OmoriColors.mutedInk,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            TextButton(
-                              onPressed: () =>
-                                  _submitDecision(_customChoiceController.text),
-                              child: Text(
-                                'respond →',
-                                style: OmoriTheme.hand(
-                                  size: 18,
-                                  weight: FontWeight.w600,
-                                  color: OmoriColors.dreamIndigo,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+    if (choice != null && mounted) await _submitDecision(choice);
   }
 
   Widget _buildReactionBeat(DecisionWithDetails beat) {
-    final reaction = beat.analysis?.childReaction ?? '';
     return Column(
+      key: ValueKey('reaction_${beat.decision.decisionId}'),
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TypewriterText(
-          key: ValueKey('reaction_${beat.decision.decisionId}'),
-          text: reaction,
-          textAlign: TextAlign.center,
-          style: OmoriTheme.hand(
-            size: 21,
-            height: 1.55,
-            color: OmoriColors.ink,
-          ),
+          text: beat.analysis?.childReaction ?? '',
+          style: OmoriTheme.hand(color: OmoriColors.paper),
           onCompleted: () {
             if (mounted) setState(() => _stageTextDone = true);
           },
         ),
-        const SizedBox(height: 36),
-        GradualReveal(
-          visible: _stageTextDone,
-          delay: const Duration(milliseconds: 220),
-          child: TextButton(
-            onPressed: _continueFromReaction,
-            child: Text(
-              _hasMoreScenarios
-                  ? 'continue →'
-                  : 'age ${_session!.targetAge} →',
-              style: OmoriTheme.hand(
-                size: 19,
-                color: OmoriColors.dreamIndigo,
-              ),
-            ),
-          ),
-        ),
       ],
-    );
-  }
-}
-
-class _IconStatsRow extends StatelessWidget {
-  final int happiness;
-  final int health;
-  final int smarts;
-  final int ambition;
-
-  const _IconStatsRow({
-    required this.happiness,
-    required this.health,
-    required this.smarts,
-    required this.ambition,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _StatIconItem(
-          icon: Icons.sentiment_satisfied_alt_rounded,
-          value: happiness,
-          color: const Color(0xFFD99B26),
-          tooltip: 'Happiness',
-        ),
-        _StatIconItem(
-          icon: Icons.favorite_border_rounded,
-          value: health,
-          color: const Color(0xFF4B9E5B),
-          tooltip: 'Health',
-        ),
-        _StatIconItem(
-          icon: Icons.auto_stories_outlined,
-          value: smarts,
-          color: OmoriColors.dreamIndigo,
-          tooltip: 'Smarts',
-        ),
-        _StatIconItem(
-          icon: Icons.local_fire_department_outlined,
-          value: ambition,
-          color: OmoriColors.redAccent,
-          tooltip: 'Ambition',
-        ),
-      ],
-    );
-  }
-}
-
-class _StatIconItem extends StatelessWidget {
-  final IconData icon;
-  final int value;
-  final Color color;
-  final String tooltip;
-
-  const _StatIconItem({
-    required this.icon,
-    required this.value,
-    required this.color,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: '$tooltip: $value%',
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 19, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '$value',
-            style: OmoriTheme.hand(
-              size: 16,
-              color: OmoriColors.mutedInk,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SoftChoiceTile extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _SoftChoiceTile({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: OmoriColors.paper.withValues(alpha: 0.84),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: OmoriTheme.hand(
-              size: 18,
-              color: OmoriColors.ink,
-              height: 1.35,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

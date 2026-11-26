@@ -71,4 +71,7 @@ Not yet wired into the app, recommended for final release:
   - `assets/audio/white_space_bgm.ogg` — Sparse, gentle piano/music-box loop (OMORI White Space mood).
   - `assets/audio/choice_select.wav` — Soft paper-tap or wooden click when selecting a parenting choice.
   - `assets/audio/headlights_impact.wav` — Subtle dramatic cutoff/flash transition into White Space.
-- **Bundled Fonts (`assets/fonts/`)** — Bundle `PatrickHand-Regular.ttf` and `VT323-Regular.ttf` locally so typography never depends on runtime Google Fonts fetching when offline.
+
+## Bundled fonts
+
+The interface ships with [Patrick Hand](https://github.com/google/fonts/tree/main/ofl/patrickhand) and [VT323](https://github.com/google/fonts/tree/main/ofl/vt323). Both are licensed under the SIL Open Font License 1.1. The font files and their licenses are in `assets/fonts/`. No font requests are made at runtime.

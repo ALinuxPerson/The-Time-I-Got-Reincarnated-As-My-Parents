@@ -44,114 +44,65 @@ class _PastLivesScreenState extends State<PastLivesScreen> {
           icon: const Icon(Icons.arrow_back, color: OmoriColors.ink),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('PAST LIVES ALBUM', style: OmoriTheme.pixel(size: 22)),
-        centerTitle: true,
+        title: Text('MEMORIES', style: OmoriTheme.pixel(size: 22)),
+        centerTitle: false,
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: OmoriColors.ink,
-                ),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : _lives.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: SketchBox(
-                    fillColor: OmoriColors.warmPaper,
-                    child: Text(
-                      'No completed lives yet.\n\nFinish raising yourself to unlock your first Memory Timeline.',
-                      textAlign: TextAlign.center,
-                      style: OmoriTheme.hand(
-                        size: 18,
-                        color: OmoriColors.mutedInk,
-                      ),
-                    ),
-                  ),
-                ),
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('No memories yet.', style: OmoriTheme.hand()),
               )
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                itemCount: _lives.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  final item = _lives[index];
-                  final achieved = item.roadmap?.dreamAchieved ?? false;
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              RoadmapScreen(sessionId: item.session.sessionId!),
+            : FocusTraversalGroup(
+                policy: OrderedTraversalPolicy(),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: _lives.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 24),
+                  itemBuilder: (context, index) {
+                    final item = _lives[index];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.player.name,
+                          style: OmoriTheme.hand(size: 28),
                         ),
-                      );
-                    },
-                    child: SketchBox(
-                      fillColor: achieved
-                          ? OmoriColors.pastelLavender
-                          : OmoriColors.paper,
-                      borderColor: achieved
-                          ? OmoriColors.dreamIndigo
-                          : OmoriColors.ink,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                item.player.name,
-                                style: OmoriTheme.hand(
-                                  size: 22,
-                                  weight: FontWeight.w700,
+                        const SizedBox(height: 8),
+                        Text(
+                          item.roadmap?.dreamAchieved == true
+                              ? 'DREAM ACHIEVED'
+                              : 'DREAM UNFULFILLED',
+                          style: OmoriTheme.pixel(size: 16),
+                        ),
+                        Text(
+                          '0-${item.session.targetAge} years · ${item.decisionCount} memories',
+                          style: OmoriTheme.hand(
+                            size: 16,
+                            color: OmoriColors.mutedInk,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FocusTraversalOrder(
+                          order: NumericFocusOrder(index.toDouble()),
+                          child: SketchButton(
+                            label: 'Read memories',
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => RoadmapScreen(
+                                  sessionId: item.session.sessionId!,
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                color: achieved
-                                    ? OmoriColors.dreamIndigo
-                                    : OmoriColors.ink,
-                                child: Text(
-                                  achieved
-                                      ? 'DREAM ACHIEVED'
-                                      : 'DREAM UNFULFILLED',
-                                  style: OmoriTheme.pixel(
-                                    size: 14,
-                                    color: OmoriColors.paper,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'AGE 0 → ${item.session.targetAge}  •  ${item.decisionCount} MEMORIES',
-                            style: OmoriTheme.pixel(
-                              size: 15,
-                              color: OmoriColors.mutedInk,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '"${item.player.dreamSelfSummary}"',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: OmoriTheme.hand(
-                              size: 16,
-                              color: OmoriColors.mutedInk,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
       ),
     );
