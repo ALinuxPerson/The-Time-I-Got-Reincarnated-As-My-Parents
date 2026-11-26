@@ -37,7 +37,6 @@ dependencies:
   sqflite: ^2.4.1
   path: ^1.9.0
   http: ^1.2.2
-  google_fonts: ^6.2.1
   audioplayers: ^6.1.0
 
 dev_dependencies:
@@ -62,6 +61,14 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: PatrickHand
+      fonts:
+        - asset: assets/fonts/patrick-hand/PatrickHand-Regular.ttf
+    - family: VT323
+      fonts:
+        - asset: assets/fonts/vt323/VT323-Regular.ttf
 
   assets:
     - assets/images/

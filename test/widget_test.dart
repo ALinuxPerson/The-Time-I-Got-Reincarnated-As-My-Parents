@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_common_ffi.dart';
@@ -30,102 +29,105 @@ void main() {
       await db.close();
     });
 
-    test('creates all 7 ERD tables, seeds scenarios, and completes a full run', () async {
-      final rawDb = await db.database;
-      final tables = await rawDb.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-      );
-      final tableNames = tables.map((r) => r['name'] as String).toSet();
-
-      expect(
-        tableNames,
-        containsAll({
-          'PLAYER',
-          'GAME_SESSION',
-          'SCENARIO',
-          'DECISION',
-          'AI_ANALYSIS',
-          'STORY_ROADMAP',
-          'STORY_EVENT',
-        }),
-      );
-
-      final player = await db.createPlayer(
-        name: 'Sunny',
-        age: 20,
-        dreamSelfSummary: 'A gentle artist who is proud of who they are',
-      );
-      final session = await db.createSession(
-        playerId: player.playerId!,
-        targetAge: player.age,
-      );
-
-      final scenarios = await db.getScenariosForTargetAge(player.age);
-      expect(scenarios.length, inInclusiveRange(6, 8));
-
-      final ai = AiService();
-      for (int i = 0; i < scenarios.length; i++) {
-        final s = scenarios[i];
-        final decision = await db.insertDecision(
-          sessionId: session.sessionId!,
-          scenarioId: s.scenarioId!,
-          choiceText: s.presetChoices.first,
-          ageAtDecision: i + 2,
+    test(
+      'creates all 7 ERD tables, seeds scenarios, and completes a full run',
+      () async {
+        final rawDb = await db.database;
+        final tables = await rawDb.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         );
-        final prior = await db.getDecisionsForSession(session.sessionId!);
-        final analysisResult = await ai.analyzeDecision(
+        final tableNames = tables.map((r) => r['name'] as String).toSet();
+
+        expect(
+          tableNames,
+          containsAll({
+            'PLAYER',
+            'GAME_SESSION',
+            'SCENARIO',
+            'DECISION',
+            'AI_ANALYSIS',
+            'STORY_ROADMAP',
+            'STORY_EVENT',
+          }),
+        );
+
+        final player = await db.createPlayer(
+          name: 'Sunny',
+          age: 20,
+          dreamSelfSummary: 'A gentle artist who is proud of who they are',
+        );
+        final session = await db.createSession(
+          playerId: player.playerId!,
+          targetAge: player.age,
+        );
+
+        final scenarios = await db.getScenariosForTargetAge(player.age);
+        expect(scenarios.length, inInclusiveRange(6, 8));
+
+        final ai = AiService();
+        for (int i = 0; i < scenarios.length; i++) {
+          final s = scenarios[i];
+          final decision = await db.insertDecision(
+            sessionId: session.sessionId!,
+            scenarioId: s.scenarioId!,
+            choiceText: s.presetChoices.first,
+            ageAtDecision: i + 2,
+          );
+          final prior = await db.getDecisionsForSession(session.sessionId!);
+          final analysisResult = await ai.analyzeDecision(
+            player: player,
+            scenario: s,
+            choiceText: decision.choiceText,
+            ageAtDecision: decision.ageAtDecision,
+            priorDecisions: prior,
+          );
+          await db.insertAiAnalysis(
+            decisionId: decision.decisionId!,
+            interpretation: analysisResult.interpretation,
+            childReaction: analysisResult.childReaction,
+            mood: analysisResult.mood,
+          );
+        }
+
+        final decisions = await db.getDecisionsForSession(session.sessionId!);
+        expect(decisions.length, scenarios.length);
+
+        final roadmapResult = await ai.generateStoryRoadmap(
           player: player,
-          scenario: s,
-          choiceText: decision.choiceText,
-          ageAtDecision: decision.ageAtDecision,
-          priorDecisions: prior,
+          targetAge: session.targetAge,
+          decisions: decisions,
         );
-        await db.insertAiAnalysis(
-          decisionId: decision.decisionId!,
-          interpretation: analysisResult.interpretation,
-          childReaction: analysisResult.childReaction,
-          mood: analysisResult.mood,
+        expect(
+          roadmapResult.endingType,
+          anyOf('dream_achieved', 'dream_not_achieved'),
         );
-      }
 
-      final decisions = await db.getDecisionsForSession(session.sessionId!);
-      expect(decisions.length, scenarios.length);
+        await db.saveStoryRoadmap(
+          sessionId: session.sessionId!,
+          generatedStory: roadmapResult.generatedStory,
+          endingType: roadmapResult.endingType,
+          moralReflection: roadmapResult.moralReflection,
+          events: decisions
+              .map(
+                (d) => (
+                  decisionId: d.decision.decisionId!,
+                  eventSummary: roadmapResult
+                      .eventSummariesByDecisionId[d.decision.decisionId!]!,
+                ),
+              )
+              .toList(),
+        );
+        await db.markSessionCompleted(session.sessionId!, session.targetAge);
 
-      final roadmapResult = await ai.generateStoryRoadmap(
-        player: player,
-        targetAge: session.targetAge,
-        decisions: decisions,
-      );
-      expect(
-        roadmapResult.endingType,
-        anyOf('dream_achieved', 'dream_not_achieved'),
-      );
+        final fullView = await db.getFullRoadmap(session.sessionId!);
+        expect(fullView, isNotNull);
+        expect(fullView!.events.length, scenarios.length);
 
-      await db.saveStoryRoadmap(
-        sessionId: session.sessionId!,
-        generatedStory: roadmapResult.generatedStory,
-        endingType: roadmapResult.endingType,
-        moralReflection: roadmapResult.moralReflection,
-        events: decisions
-            .map(
-              (d) => (
-                decisionId: d.decision.decisionId!,
-                eventSummary:
-                    roadmapResult.eventSummariesByDecisionId[d.decision.decisionId!]!,
-              ),
-            )
-            .toList(),
-      );
-      await db.markSessionCompleted(session.sessionId!, session.targetAge);
-
-      final fullView = await db.getFullRoadmap(session.sessionId!);
-      expect(fullView, isNotNull);
-      expect(fullView!.events.length, scenarios.length);
-
-      final pastLives = await db.getCompletedPastLives();
-      expect(pastLives.length, 1);
-      expect(pastLives.first.player.name, 'Sunny');
-    });
+        final pastLives = await db.getCompletedPastLives();
+        expect(pastLives.length, 1);
+        expect(pastLives.first.player.name, 'Sunny');
+      },
+    );
 
     testWidgets('renders HomeScreen in White Space', (tester) async {
       await tester.runAsync(() async {
@@ -138,35 +140,23 @@ void main() {
       await tester.pump();
 
       expect(find.textContaining('REINCARNATED AS'), findsOneWidget);
-      expect(find.text('Begin a New Life'), findsOneWidget);
-      expect(find.text('Past Lives & Memory Album'), findsOneWidget);
+      expect(find.text('New life'), findsOneWidget);
+      expect(find.text('Memories'), findsOneWidget);
     });
 
-    testWidgets('renders OnboardingScreen with space particles and bold text', (
+    testWidgets('new life form validates before creating a session', (
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: OmoriTheme.build(),
-          home: const OnboardingScreen(),
-        ),
+        MaterialApp(theme: OmoriTheme.build(), home: const OnboardingScreen()),
       );
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.byType(SpaceParticlesBackground), findsOneWidget);
-
-      // Verify cursor hover interaction updates smoothly without errors.
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await gesture.addPointer(location: const Offset(100, 100));
-      addTearDown(gesture.removePointer);
-      await gesture.moveTo(const Offset(240, 220));
-      await tester.pump(const Duration(milliseconds: 50));
-
-      final typewriter = tester.widget<TypewriterText>(
-        find.byType(TypewriterText),
-      );
-      expect(typewriter.style?.fontWeight, FontWeight.w700);
-      expect(typewriter.style?.fontSize, closeTo(22 * OmoriTheme.fontScale, 0.01));
+      expect(find.byType(TextFormField), findsNWidgets(3));
+      await tester.ensureVisible(find.text('Begin'));
+      await tester.tap(find.text('Begin'));
+      await tester.pumpAndSettle();
+      expect(find.text('Write your name.'), findsOneWidget);
+      expect(find.text('Write a short sentence.'), findsOneWidget);
+      expect(await db.getLatestInProgressSession(), isNull);
     });
 
     test('timeOfDayPhrase reflects system clock hour', () {

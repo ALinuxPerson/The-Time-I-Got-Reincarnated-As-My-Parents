@@ -164,107 +164,61 @@ class _EndingScreenState extends State<EndingScreen> {
       body = view.roadmap.moralReflection;
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 800),
-      curve: Curves.easeInOutSine,
-      color: bgColor,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Padding(
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 680),
-                  switchInCurve: Curves.easeInOutSine,
-                  switchOutCurve: Curves.easeInOutSine,
-                  child: Column(
-                    key: ValueKey('ending_beat_$_beat'),
-                    children: [
-                if (isMoralBeat)
-                  const HangingLightbulb(cordHeight: 48)
-                else
-                  const SizedBox(height: 40),
-                const Spacer(),
-                Text(
-                  heading,
-                  textAlign: TextAlign.center,
-                  style: OmoriTheme.pixel(
-                    size: 22,
-                    color: isDeathBeat
-                        ? OmoriColors.redAccent
-                        : (dreamAchieved && _beat == 0
-                              ? OmoriColors.dreamIndigo
-                              : OmoriColors.mutedInk),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (_beat == 0) ...[
-                  SketchImageFrame(
-                    assetPath: dreamAchieved
-                        ? 'assets/images/ending_dream_achieved.jpg'
-                        : 'assets/images/ending_dream_unfulfilled.jpg',
-                    borderColor: dreamAchieved
-                        ? OmoriColors.dreamIndigo
-                        : OmoriColors.ink,
-                  ),
-                  const SizedBox(height: 16),
-                ] else if (isDeathBeat) ...[
-                  const SketchImageFrame(
-                    assetPath: 'assets/images/crosswalk_rain.jpg',
-                    borderColor: OmoriColors.redAccent,
-                    showShadow: false,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                SketchBox(
-                  fillColor: isDeathBeat
-                      ? OmoriColors.ink
-                      : OmoriColors.paper,
-                  borderColor: isDeathBeat
-                      ? OmoriColors.redAccent
-                      : (dreamAchieved && _beat == 0
-                            ? OmoriColors.dreamIndigo
-                            : OmoriColors.ink),
-                  showShadow: !isDeathBeat,
-                  padding: const EdgeInsets.all(20),
-                  child: TypewriterText(
-                    key: ValueKey(_beat),
-                    text: body,
-                    style: OmoriTheme.hand(
-                      size: 19,
-                      color: textColor,
-                      height: 1.45,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          heading,
+                          style: OmoriTheme.pixel(color: textColor),
+                        ),
+                        const SizedBox(height: 24),
+                        if (!isMoralBeat) ...[
+                          SketchImageFrame(
+                            assetPath: isDeathBeat
+                                ? 'assets/images/crosswalk_rain.jpg'
+                                : dreamAchieved
+                                ? 'assets/images/ending_dream_achieved.jpg'
+                                : 'assets/images/ending_dream_unfulfilled.jpg',
+                            maxHeight: 180,
+                            borderColor: textColor,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        TypewriterText(
+                          key: ValueKey(_beat),
+                          text: body,
+                          style: OmoriTheme.hand(color: textColor),
+                          onCompleted: () {
+                            if (mounted) setState(() => _beatTextDone = true);
+                          },
+                        ),
+                      ],
                     ),
-                    onCompleted: () {
-                      if (mounted) setState(() => _beatTextDone = true);
-                    },
-                  ),
-                ),
-                const Spacer(),
-                GradualReveal(
-                  visible: _beatTextDone,
-                  delay: const Duration(milliseconds: 220),
-                  child: SketchButton(
-                    label: isMoralBeat
-                        ? 'Open Memory Timeline'
-                        : 'Continue',
-                    inverted: !isDeathBeat,
-                    accentColor: isDeathBeat
-                        ? OmoriColors.redAccent
-                        : OmoriColors.ink,
-                    onPressed: _nextBeat,
-                  ),
-                ),
-                  const SizedBox(height: 12),
-                    ],
                   ),
                 ),
               ),
             ),
-          ),
+            if (_beatTextDone)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: SketchButton(
+                  label: isMoralBeat ? 'Read memories' : 'Continue',
+                  onPressed: _nextBeat,
+                ),
+              ),
+          ],
         ),
       ),
     );
