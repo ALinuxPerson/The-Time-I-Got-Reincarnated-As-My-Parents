@@ -6,7 +6,7 @@ import 'scenario_seed.dart';
 
 class DatabaseHelper {
   static const String _dbName = 'reincarnated_as_parents.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   static DatabaseHelper instance = DatabaseHelper._internal();
 
@@ -88,6 +88,11 @@ class DatabaseHelper {
         'ALTER TABLE AI_ANALYSIS ADD COLUMN ambition_delta INTEGER NOT NULL DEFAULT 0',
       );
     }
+    if (oldVersion < 3) {
+      await db.execute(
+        "ALTER TABLE PLAYER ADD COLUMN sex TEXT NOT NULL DEFAULT 'Unspecified'",
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -96,6 +101,7 @@ class DatabaseHelper {
       CREATE TABLE PLAYER (
         player_id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        sex TEXT NOT NULL DEFAULT 'Unspecified',
         age INTEGER NOT NULL,
         dream_self_summary TEXT NOT NULL,
         created_at TEXT NOT NULL
@@ -209,13 +215,16 @@ class DatabaseHelper {
 
   Future<Player> createPlayer({
     required String name,
+    String sex = 'Unspecified',
     required int age,
     required String dreamSelfSummary,
   }) async {
     final db = await database;
     final now = DateTime.now();
+    final normalizedSex = sex.trim().isEmpty ? 'Unspecified' : sex.trim();
     final id = await db.insert('PLAYER', {
       'name': name.trim(),
+      'sex': normalizedSex,
       'age': age,
       'dream_self_summary': dreamSelfSummary.trim(),
       'created_at': now.toIso8601String(),
@@ -223,6 +232,7 @@ class DatabaseHelper {
     return Player(
       playerId: id,
       name: name.trim(),
+      sex: normalizedSex,
       age: age,
       dreamSelfSummary: dreamSelfSummary.trim(),
       createdAt: now,

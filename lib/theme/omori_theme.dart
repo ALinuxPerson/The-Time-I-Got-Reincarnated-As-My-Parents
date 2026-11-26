@@ -15,6 +15,7 @@ class OmoriColors {
 
 class OmoriTheme {
   static bool useSystemFallbackFonts = false;
+  static const double fontScale = 1.2;
 
   static TextStyle hand({
     double size = 18,
@@ -23,9 +24,17 @@ class OmoriTheme {
     double? height,
     double? letterSpacing,
   }) {
+    final scaledSize = size * fontScale;
+    final boldShadows = weight.value >= FontWeight.w700.value
+        ? <Shadow>[
+            Shadow(color: color, offset: const Offset(0.45, 0)),
+            Shadow(color: color, offset: const Offset(-0.2, 0.2)),
+          ]
+        : null;
+
     if (useSystemFallbackFonts) {
       return TextStyle(
-        fontSize: size,
+        fontSize: scaledSize,
         fontWeight: weight,
         color: color,
         height: height ?? 1.35,
@@ -33,11 +42,12 @@ class OmoriTheme {
       );
     }
     return GoogleFonts.patrickHand(
-      fontSize: size,
+      fontSize: scaledSize,
       fontWeight: weight,
       color: color,
       height: height ?? 1.35,
       letterSpacing: letterSpacing,
+      shadows: boldShadows,
     );
   }
 
@@ -46,16 +56,17 @@ class OmoriTheme {
     Color color = OmoriColors.ink,
     double? letterSpacing,
   }) {
+    final scaledSize = size * fontScale;
     if (useSystemFallbackFonts) {
       return TextStyle(
         fontFamily: 'monospace',
-        fontSize: size,
+        fontSize: scaledSize,
         color: color,
         letterSpacing: letterSpacing ?? 0.8,
       );
     }
     return GoogleFonts.vt323(
-      fontSize: size,
+      fontSize: scaledSize,
       color: color,
       letterSpacing: letterSpacing ?? 0.8,
     );
@@ -65,6 +76,15 @@ class OmoriTheme {
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: OmoriColors.whiteSpace,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.macOS: _GradualFadePageTransitionsBuilder(),
+          TargetPlatform.iOS: _GradualFadePageTransitionsBuilder(),
+          TargetPlatform.android: _GradualFadePageTransitionsBuilder(),
+          TargetPlatform.linux: _GradualFadePageTransitionsBuilder(),
+          TargetPlatform.windows: _GradualFadePageTransitionsBuilder(),
+        },
+      ),
       colorScheme: const ColorScheme.light(
         surface: OmoriColors.whiteSpace,
         primary: OmoriColors.ink,
@@ -101,6 +121,45 @@ class OmoriTheme {
           borderRadius: BorderRadius.zero,
           borderSide: BorderSide(color: OmoriColors.dreamIndigo, width: 2.5),
         ),
+      ),
+    );
+  }
+}
+
+/// Gradual, candid cross-fade page transition replacing default slides.
+class _GradualFadePageTransitionsBuilder extends PageTransitionsBuilder {
+  const _GradualFadePageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 620);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 520);
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final fadeIn = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeInOutSine,
+      reverseCurve: Curves.easeInOutSine,
+    );
+    final fadeOut = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: Curves.easeInOutSine,
+      ),
+    );
+    return FadeTransition(
+      opacity: fadeIn,
+      child: FadeTransition(
+        opacity: fadeOut,
+        child: child,
       ),
     );
   }

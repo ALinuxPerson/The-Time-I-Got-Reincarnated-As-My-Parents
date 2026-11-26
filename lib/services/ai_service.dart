@@ -74,10 +74,15 @@ class AiService {
                   )
                   .join('\n');
 
+        final sexContext =
+            (player.sex != 'Unspecified' && player.sex != 'Prefer not to say')
+            ? ' (${player.sex})'
+            : '';
+
         final prompt = '''
 You are the quiet, bittersweet narrative engine of an OMORI-inspired life-choice game called "The Time I Got Reincarnated As My Parents".
 The player died at age ${player.age}, wishing they had become: "${player.dreamSelfSummary}".
-They were reincarnated as their own parents and are raising "${player.name}" from infancy up to age ${player.age}.
+They were reincarnated as their own parents and are raising "${player.name}"$sexContext from infancy up to age ${player.age}.
 
 Current milestone:
 - Child age: $ageAtDecision (${scenario.ageStage})
@@ -148,10 +153,15 @@ Return STRICT JSON with exactly these keys:
             )
             .join('\n');
 
+        final sexContext =
+            (player.sex != 'Unspecified' && player.sex != 'Prefer not to say')
+            ? ' (${player.sex})'
+            : '';
+
         final prompt = '''
 You are the narrative engine of an OMORI-inspired game: "The Time I Got Reincarnated As My Parents".
 The player died at age $targetAge wishing they had become: "${player.dreamSelfSummary}".
-They reincarnated as their own parents and raised "${player.name}" from birth up to age $targetAge.
+They reincarnated as their own parents and raised "${player.name}"$sexContext from birth up to age $targetAge.
 
 Full parenting timeline:
 $timelineText

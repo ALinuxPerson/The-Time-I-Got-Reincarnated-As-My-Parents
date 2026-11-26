@@ -22,6 +22,7 @@ class _EndingScreenState extends State<EndingScreen> {
   FullRoadmapView? _roadmapView;
   bool _loading = true;
   int _beat = 0; // 0 = who they became, 1 = mirrored death, 2 = moral lesson
+  bool _beatTextDone = false;
 
   @override
   void initState() {
@@ -84,7 +85,10 @@ class _EndingScreenState extends State<EndingScreen> {
 
   void _nextBeat() {
     if (_beat < 2) {
-      setState(() => _beat++);
+      setState(() {
+        _beatTextDone = false;
+        _beat++;
+      });
     } else {
       Navigator.pushReplacement(
         context,
@@ -161,7 +165,8 @@ class _EndingScreenState extends State<EndingScreen> {
     }
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOutSine,
       color: bgColor,
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -171,8 +176,13 @@ class _EndingScreenState extends State<EndingScreen> {
               constraints: const BoxConstraints(maxWidth: 480),
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Column(
-              children: [
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 680),
+                  switchInCurve: Curves.easeInOutSine,
+                  switchOutCurve: Curves.easeInOutSine,
+                  child: Column(
+                    key: ValueKey('ending_beat_$_beat'),
+                    children: [
                 if (isMoralBeat)
                   const HangingLightbulb(cordHeight: 48)
                 else
@@ -228,24 +238,32 @@ class _EndingScreenState extends State<EndingScreen> {
                       color: textColor,
                       height: 1.45,
                     ),
+                    onCompleted: () {
+                      if (mounted) setState(() => _beatTextDone = true);
+                    },
                   ),
                 ),
                 const Spacer(),
-                SketchButton(
-                  label: isMoralBeat
-                      ? 'Open Memory Timeline'
-                      : 'Continue',
-                  inverted: !isDeathBeat,
-                  accentColor: isDeathBeat
-                      ? OmoriColors.redAccent
-                      : OmoriColors.ink,
-                  onPressed: _nextBeat,
+                GradualReveal(
+                  visible: _beatTextDone,
+                  delay: const Duration(milliseconds: 220),
+                  child: SketchButton(
+                    label: isMoralBeat
+                        ? 'Open Memory Timeline'
+                        : 'Continue',
+                    inverted: !isDeathBeat,
+                    accentColor: isDeathBeat
+                        ? OmoriColors.redAccent
+                        : OmoriColors.ink,
+                    onPressed: _nextBeat,
+                  ),
                 ),
-                const SizedBox(height: 12),
-              ],
+                  const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
           ),
         ),
       ),

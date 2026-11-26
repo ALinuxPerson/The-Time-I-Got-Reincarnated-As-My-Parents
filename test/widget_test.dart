@@ -1,11 +1,15 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_common_ffi.dart';
 
 import 'package:the_time_i_got_reincarnated_as_my_parents/data/database_helper.dart';
 import 'package:the_time_i_got_reincarnated_as_my_parents/main.dart';
+import 'package:the_time_i_got_reincarnated_as_my_parents/screens/onboarding_screen.dart';
 import 'package:the_time_i_got_reincarnated_as_my_parents/services/ai_service.dart';
 import 'package:the_time_i_got_reincarnated_as_my_parents/services/sound_service.dart';
 import 'package:the_time_i_got_reincarnated_as_my_parents/theme/omori_theme.dart';
+import 'package:the_time_i_got_reincarnated_as_my_parents/widgets/sketchy_widgets.dart';
 
 void main() {
   setUpAll(() {
@@ -136,6 +140,87 @@ void main() {
       expect(find.textContaining('REINCARNATED AS'), findsOneWidget);
       expect(find.text('Begin a New Life'), findsOneWidget);
       expect(find.text('Past Lives & Memory Album'), findsOneWidget);
+    });
+
+    testWidgets('renders OnboardingScreen with space particles and bold text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: OmoriTheme.build(),
+          home: const OnboardingScreen(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(SpaceParticlesBackground), findsOneWidget);
+
+      // Verify cursor hover interaction updates smoothly without errors.
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: const Offset(100, 100));
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(const Offset(240, 220));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final typewriter = tester.widget<TypewriterText>(
+        find.byType(TypewriterText),
+      );
+      expect(typewriter.style?.fontWeight, FontWeight.w700);
+      expect(typewriter.style?.fontSize, closeTo(22 * OmoriTheme.fontScale, 0.01));
+    });
+
+    test('timeOfDayPhrase reflects system clock hour', () {
+      expect(
+        OnboardingScreen.timeOfDayPhrase(DateTime(2026, 1, 1, 8)),
+        'this morning',
+      );
+      expect(
+        OnboardingScreen.timeOfDayPhrase(DateTime(2026, 1, 1, 15)),
+        'this afternoon',
+      );
+      expect(
+        OnboardingScreen.timeOfDayPhrase(DateTime(2026, 1, 1, 19)),
+        'this evening',
+      );
+      expect(
+        OnboardingScreen.timeOfDayPhrase(DateTime(2026, 1, 1, 23)),
+        'tonight',
+      );
+      expect(
+        OnboardingScreen.timeOfDayPhrase(DateTime(2026, 1, 1, 2)),
+        'tonight',
+      );
+    });
+
+    test('WindowSceneBackground maps age and mood to placeholder assets', () {
+      expect(
+        WindowSceneBackground.characterAssetForAge(1),
+        'assets/images/window/standing_infancy.png',
+      );
+      expect(
+        WindowSceneBackground.characterAssetForAge(7),
+        'assets/images/window/standing_childhood.png',
+      );
+      expect(
+        WindowSceneBackground.characterAssetForAge(15),
+        'assets/images/window/standing_teen.png',
+      );
+      expect(
+        WindowSceneBackground.characterAssetForAge(22),
+        'assets/images/window/standing_adult.png',
+      );
+      expect(
+        WindowSceneBackground.skyAssetForMood('happy'),
+        'assets/images/window/sky_happy.png',
+      );
+      expect(
+        WindowSceneBackground.skyAssetForMood('sad'),
+        'assets/images/window/sky_sad.png',
+      );
+      expect(
+        WindowSceneBackground.skyAssetForMood('unknown'),
+        'assets/images/window/sky_neutral.png',
+      );
     });
   });
 }

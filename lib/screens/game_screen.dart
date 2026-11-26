@@ -32,6 +32,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _showStats = false; // Collapsed by default
   bool _optionsOpen = false; // Options drop down
   bool _showCustomInput = false;
+  bool _stageTextDone = false;
   DecisionWithDetails? _activeReactionBeat;
 
   int get _nextScenarioIndex => _decisions.length;
@@ -161,6 +162,7 @@ class _GameScreenState extends State<GameScreen> {
       _session = updatedSession;
       _decisions = [..._decisions, completedItem];
       _activeReactionBeat = completedItem;
+      _stageTextDone = false;
       _submitting = false;
     });
   }
@@ -174,6 +176,7 @@ class _GameScreenState extends State<GameScreen> {
       _activeReactionBeat = null;
       _optionsOpen = false;
       _showCustomInput = false;
+      _stageTextDone = false;
     });
   }
 
@@ -196,6 +199,21 @@ class _GameScreenState extends State<GameScreen> {
     return _session?.targetAge ?? 0;
   }
 
+  String _currentMood() {
+    final activeMood = _activeReactionBeat?.analysis?.mood;
+    if (activeMood != null && activeMood.isNotEmpty) return activeMood;
+
+    if (_decisions.isNotEmpty) {
+      final lastMood = _decisions.last.analysis?.mood;
+      if (lastMood != null && lastMood.isNotEmpty) return lastMood;
+    }
+
+    final happiness = _session?.happiness ?? 50;
+    if (happiness >= 68) return 'happy';
+    if (happiness <= 34) return 'sad';
+    return 'neutral';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _player == null || _session == null) {
@@ -216,126 +234,170 @@ class _GameScreenState extends State<GameScreen> {
 
     final session = _session!;
     final currentAge = _displayAge();
+    final currentMood = _currentMood();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final leftReserve = screenWidth >= 640 ? screenWidth * 0.25 : 0.0;
 
     return Scaffold(
       backgroundColor: OmoriColors.whiteSpace,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // --- BORDERLESS TOP BAR (AGE + COLLAPSED ICON STATS + CLOSE) ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-              child: Column(
-                children: [
-                  Row(
+      body: WindowSceneBackground(
+        age: currentAge,
+        mood: currentMood,
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(left: leftReserve),
+            child: Column(
+              children: [
+                // --- BORDERLESS TOP BAR (AGE + COLLAPSED ICON STATS + CLOSE) ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+                  child: Column(
                     children: [
-                      Text(
-                        'age $currentAge',
-                        style: OmoriTheme.hand(
-                          size: 17,
-                          color: OmoriColors.mutedInk,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Decision roadmap',
-                        icon: const Icon(
-                          Icons.map_outlined,
-                          color: OmoriColors.mutedInk,
-                          size: 20,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => LiveRoadmapScreen(
-                                player: _player!,
-                                session: session,
-                                scenarios: _scenarios,
-                                milestoneAges: _milestoneAges,
-                                decisions: _decisions,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: OmoriColors.paper.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'age $currentAge · $currentMood',
+                              style: OmoriTheme.hand(
+                                size: 17,
+                                weight: FontWeight.w600,
+                                color: OmoriColors.ink,
                               ),
                             ),
-                          );
-                        },
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'Decision roadmap',
+                            icon: const Icon(
+                              Icons.map_outlined,
+                              color: OmoriColors.ink,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => LiveRoadmapScreen(
+                                    player: _player!,
+                                    session: session,
+                                    scenarios: _scenarios,
+                                    milestoneAges: _milestoneAges,
+                                    decisions: _decisions,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            tooltip: _showStats ? 'Hide stats' : 'Show stats',
+                            icon: Icon(
+                              _showStats
+                                  ? Icons.expand_less_rounded
+                                  : Icons.auto_awesome_outlined,
+                              color: OmoriColors.ink,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showStats = !_showStats),
+                          ),
+                          IconButton(
+                            tooltip: 'Leave',
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: OmoriColors.ink,
+                              size: 20,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        tooltip: _showStats ? 'Hide stats' : 'Show stats',
-                        icon: Icon(
-                          _showStats
-                              ? Icons.expand_less_rounded
-                              : Icons.auto_awesome_outlined,
-                          color: OmoriColors.mutedInk,
-                          size: 20,
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 420),
+                        firstCurve: Curves.easeInOutSine,
+                        secondCurve: Curves.easeInOutSine,
+                        crossFadeState: _showStats
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Padding(
+                          padding: const EdgeInsets.only(top: 6, bottom: 8),
+                          child: _IconStatsRow(
+                            happiness: session.happiness,
+                            health: session.health,
+                            smarts: session.smarts,
+                            ambition: session.ambition,
+                          ),
                         ),
-                        onPressed: () =>
-                            setState(() => _showStats = !_showStats),
-                      ),
-                      IconButton(
-                        tooltip: 'Leave',
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: OmoriColors.mutedInk,
-                          size: 20,
-                        ),
-                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  AnimatedCrossFade(
-                    duration: const Duration(milliseconds: 220),
-                    crossFadeState: _showStats
-                        ? CrossFadeState.showSecond
-                        : CrossFadeState.showFirst,
-                    firstChild: const SizedBox.shrink(),
-                    secondChild: Padding(
-                      padding: const EdgeInsets.only(top: 6, bottom: 8),
-                      child: _IconStatsRow(
-                        happiness: session.happiness,
-                        health: session.health,
-                        smarts: session.smarts,
-                        ambition: session.ambition,
+                ),
+
+                // --- CENTERED SCENARIO ALONE IN THE MIDDLE + DROPDOWN OPTIONS ---
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 24,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 580),
+                          switchInCurve: Curves.easeInOutSine,
+                          switchOutCurve: Curves.easeInOutSine,
+                          child: _submitting
+                              ? Center(
+                                  key: const ValueKey('stage_submitting'),
+                                  child: Text(
+                                    '...',
+                                    style: OmoriTheme.hand(
+                                      size: 26,
+                                      color: OmoriColors.mutedInk,
+                                    ),
+                                  ),
+                                )
+                              : _activeReactionBeat != null
+                              ? KeyedSubtree(
+                                  key: ValueKey(
+                                    'stage_reaction_${_activeReactionBeat!.decision.decisionId}',
+                                  ),
+                                  child: _buildReactionBeat(
+                                    _activeReactionBeat!,
+                                  ),
+                                )
+                              : _hasMoreScenarios
+                              ? KeyedSubtree(
+                                  key: ValueKey(
+                                    'stage_scenario_${_scenarios[_nextScenarioIndex].scenarioId}',
+                                  ),
+                                  child: _buildScenarioStage(
+                                    _scenarios[_nextScenarioIndex],
+                                  ),
+                                )
+                              : Text(
+                                  key: const ValueKey('stage_done'),
+                                  'Age ${session.targetAge} arrives.\nThe sky turns gray with rain...',
+                                  textAlign: TextAlign.center,
+                                  style: OmoriTheme.hand(size: 21, height: 1.5),
+                                ),
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // --- CENTERED SCENARIO ALONE IN THE MIDDLE + DROPDOWN OPTIONS ---
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 24,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: _submitting
-                        ? Center(
-                            child: Text(
-                              '...',
-                              style: OmoriTheme.hand(
-                                size: 26,
-                                color: OmoriColors.mutedInk,
-                              ),
-                            ),
-                          )
-                        : _activeReactionBeat != null
-                        ? _buildReactionBeat(_activeReactionBeat!)
-                        : _hasMoreScenarios
-                        ? _buildScenarioStage(_scenarios[_nextScenarioIndex])
-                        : Text(
-                            'Age ${session.targetAge} arrives.\nThe sky turns gray with rain...',
-                            textAlign: TextAlign.center,
-                            style: OmoriTheme.hand(size: 21, height: 1.5),
-                          ),
-                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -366,41 +428,50 @@ class _GameScreenState extends State<GameScreen> {
             height: 1.55,
             color: OmoriColors.ink,
           ),
+          onCompleted: () {
+            if (mounted) setState(() => _stageTextDone = true);
+          },
         ),
         const SizedBox(height: 36),
 
-        // Soft borderless dropdown trigger for options
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => setState(() => _optionsOpen = !_optionsOpen),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _optionsOpen ? 'hide choices' : 'what do you do?',
-                  style: OmoriTheme.hand(
-                    size: 18,
-                    color: OmoriColors.dreamIndigo,
+        // Soft borderless dropdown trigger appears gradually after text finishes
+        GradualReveal(
+          visible: _stageTextDone,
+          delay: const Duration(milliseconds: 180),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() => _optionsOpen = !_optionsOpen),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _optionsOpen ? 'hide choices' : 'what do you do?',
+                    style: OmoriTheme.hand(
+                      size: 18,
+                      color: OmoriColors.dreamIndigo,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  _optionsOpen
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  color: OmoriColors.dreamIndigo,
-                  size: 20,
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Icon(
+                    _optionsOpen
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: OmoriColors.dreamIndigo,
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
 
         // Dropdown options list (no borders, no lines, no dividers)
         AnimatedCrossFade(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 420),
+          firstCurve: Curves.easeInOutSine,
+          secondCurve: Curves.easeInOutSine,
           crossFadeState: _optionsOpen
               ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
@@ -514,17 +585,24 @@ class _GameScreenState extends State<GameScreen> {
             height: 1.55,
             color: OmoriColors.ink,
           ),
+          onCompleted: () {
+            if (mounted) setState(() => _stageTextDone = true);
+          },
         ),
         const SizedBox(height: 36),
-        TextButton(
-          onPressed: _continueFromReaction,
-          child: Text(
-            _hasMoreScenarios
-                ? 'continue →'
-                : 'age ${_session!.targetAge} →',
-            style: OmoriTheme.hand(
-              size: 19,
-              color: OmoriColors.dreamIndigo,
+        GradualReveal(
+          visible: _stageTextDone,
+          delay: const Duration(milliseconds: 220),
+          child: TextButton(
+            onPressed: _continueFromReaction,
+            child: Text(
+              _hasMoreScenarios
+                  ? 'continue →'
+                  : 'age ${_session!.targetAge} →',
+              style: OmoriTheme.hand(
+                size: 19,
+                color: OmoriColors.dreamIndigo,
+              ),
             ),
           ),
         ),
@@ -624,7 +702,7 @@ class _SoftChoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: OmoriColors.pastelLavender.withValues(alpha: 0.65),
+      color: OmoriColors.paper.withValues(alpha: 0.84),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),

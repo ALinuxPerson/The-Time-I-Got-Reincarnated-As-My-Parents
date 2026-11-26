@@ -30,6 +30,25 @@ Square 1:1 (`512×512`) Stardew × OMORI portraits in `assets/images/`:
 
 ---
 
+## 2b. Main Choice Screen Window Scene (Currently Using Placeholders)
+
+Layered vibrant background assets in `assets/images/window/` used by `WindowSceneBackground` on `GameScreen`:
+
+| File | Aspect / Size | Variant | Description |
+| --- | --- | --- | --- |
+| `assets/images/window/sky_happy.png` | 16:9 (`1280×720`) | Mood: `happy` | Bright sunlit pastel blue sky with golden sunbeams and fluffy cream clouds. |
+| `assets/images/window/sky_proud.png` | 16:9 (`1280×720`) | Mood: `proud` | Golden-hour sunset sky in peach, rose-pink, and glowing amber. |
+| `assets/images/window/sky_neutral.png` | 16:9 (`1280×720`) | Mood: `neutral` | Calm pastel afternoon sky with soft drifting clouds. |
+| `assets/images/window/sky_quiet.png` | 16:9 (`1280×720`) | Mood: `quiet` | Serene twilight indigo-lavender sky with crescent moon and stars. |
+| `assets/images/window/sky_anxious.png` | 16:9 (`1280×720`) | Mood: `anxious` | Restless violet-slate dusk sky with heavy clouds and muted coral horizon. |
+| `assets/images/window/sky_sad.png` | 16:9 (`1280×720`) | Mood: `sad` | Moody rainy blue-gray twilight sky with diagonal rain streaks. |
+| `assets/images/window/standing_infancy.png` | 5:9 (`500×900`, transparent PNG) | Age: Infancy (0–2) | Full-height standing/seated swaddled baby portrait in the left fourth of `GameScreen`. |
+| `assets/images/window/standing_childhood.png` | 5:9 (`500×900`, transparent PNG) | Age: Childhood (3–10) | Full-height standing child portrait in striped sweater and sneakers in the left fourth of `GameScreen`. |
+| `assets/images/window/standing_teen.png` | 5:9 (`500×900`, transparent PNG) | Age: Teen (11–17) | Full-height standing teen portrait in oversized hoodie in the left fourth of `GameScreen`. |
+| `assets/images/window/standing_adult.png` | 5:9 (`500×900`, transparent PNG) | Age: Adult (18+) | Full-height standing young adult portrait in long coat holding a sketchbook in the left fourth of `GameScreen`. |
+
+---
+
 ## 3. Audio Assets
 
 Currently in `assets/audio/`:

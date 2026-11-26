@@ -3,6 +3,7 @@ import 'dart:convert';
 class Player {
   final int? playerId;
   final String name;
+  final String sex;
   final int age;
   final String dreamSelfSummary;
   final DateTime createdAt;
@@ -10,6 +11,7 @@ class Player {
   const Player({
     this.playerId,
     required this.name,
+    this.sex = 'Unspecified',
     required this.age,
     required this.dreamSelfSummary,
     required this.createdAt,
@@ -18,6 +20,7 @@ class Player {
   Map<String, Object?> toMap() => {
     if (playerId != null) 'player_id': playerId,
     'name': name,
+    'sex': sex,
     'age': age,
     'dream_self_summary': dreamSelfSummary,
     'created_at': createdAt.toIso8601String(),
@@ -26,6 +29,7 @@ class Player {
   factory Player.fromMap(Map<String, Object?> map) => Player(
     playerId: map['player_id'] as int?,
     name: map['name'] as String,
+    sex: (map['sex'] as String?) ?? 'Unspecified',
     age: map['age'] as int,
     dreamSelfSummary: map['dream_self_summary'] as String,
     createdAt: DateTime.parse(map['created_at'] as String),
