@@ -819,6 +819,92 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
     return poly;
   }
 
+  String _portraitForStage(String ageStage) {
+    final s = ageStage.toLowerCase();
+    if (s.contains('infan')) return 'assets/images/portrait_infancy.jpg';
+    if (s.contains('early') || s.contains('child')) {
+      return 'assets/images/portrait_childhood.jpg';
+    }
+    if (s.contains('pre-teen') || s.contains('teen')) {
+      return 'assets/images/portrait_teen.jpg';
+    }
+    return 'assets/images/portrait_adult.jpg';
+  }
+
+  Widget _buildDetailBanner({
+    required String skyAsset,
+    String? portraitAsset,
+    String? fullBleedAsset,
+    bool locked = false,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: double.infinity,
+        height: 146,
+        child: fullBleedAsset != null
+            ? Image.asset(
+                fullBleedAsset,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    Container(color: OmoriColors.pastelLavender),
+              )
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    skyAsset,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        Container(color: OmoriColors.pastelLavender),
+                  ),
+                  if (locked)
+                    Container(
+                      color: OmoriColors.whiteSpace.withValues(alpha: 0.65),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '?',
+                        style: OmoriTheme.hand(
+                          size: 38,
+                          weight: FontWeight.w700,
+                          color: OmoriColors.mutedInk,
+                        ),
+                      ),
+                    )
+                  else if (portraitAsset != null)
+                    Center(
+                      child: Container(
+                        width: 106,
+                        height: 106,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: OmoriColors.paper,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.asset(
+                            portraitAsset,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) =>
+                                Container(color: OmoriColors.warmPaper),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
   void _showTileDetailDialog(_BoardTileData tile) {
     if (tile.isDone) {
       widget.onSelectDecision(tile.index);
@@ -828,6 +914,11 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
         ? widget.decisions[tile.index]
         : null;
     final scenario = widget.scenarios[tile.index];
+    final mood = decision?.analysis?.mood ?? 'neutral';
+    final skyAsset = WindowSceneBackground.skyAssetForMood(
+      tile.isDone || tile.isCurrent ? mood : 'quiet',
+    );
+    final portraitAsset = _portraitForStage(scenario.ageStage);
 
     showDialog<void>(
       context: context,
@@ -855,129 +946,142 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: tile.isDone || tile.isCurrent
+                              ? OmoriColors.ink
+                              : OmoriColors.mutedInk,
+                        ),
+                        child: Text(
+                          '${tile.index + 1}',
+                          style: OmoriTheme.hand(
+                            size: 14,
+                            weight: FontWeight.w700,
+                            color: OmoriColors.paper,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          tile.isDone || tile.isCurrent
+                              ? '${tile.ageLabel} — ${scenario.title}'
+                              : '${tile.ageLabel} — Upcoming Moment',
+                          style: OmoriTheme.hand(
+                            size: 20,
+                            weight: FontWeight.w700,
+                            color: OmoriColors.ink,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: OmoriColors.mutedInk,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailBanner(
+                    skyAsset: skyAsset,
+                    portraitAsset: portraitAsset,
+                    locked: !tile.isDone && !tile.isCurrent,
+                  ),
+                  const SizedBox(height: 14),
+                  if (decision != null) ...[
+                    Text(
+                      scenario.description,
+                      style: OmoriTheme.hand(
+                        size: 16,
+                        color: OmoriColors.mutedInk,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Container(
-                      width: 30,
-                      height: 30,
-                      alignment: Alignment.center,
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: tile.isDone || tile.isCurrent
-                            ? OmoriColors.ink
-                            : OmoriColors.mutedInk,
+                        color: OmoriColors.pastelLavender.withValues(
+                          alpha: 0.7,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '${tile.index + 1}',
+                        '“${decision.decision.choiceText}”',
                         style: OmoriTheme.hand(
-                          size: 14,
+                          size: 17,
                           weight: FontWeight.w700,
-                          color: OmoriColors.paper,
+                          color: OmoriColors.dreamIndigo,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        tile.isDone || tile.isCurrent
-                            ? '${tile.ageLabel} — ${scenario.title}'
-                            : '${tile.ageLabel} — Upcoming Moment',
+                    if (decision.analysis != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        decision.analysis!.childReaction,
                         style: OmoriTheme.hand(
-                          size: 20,
-                          weight: FontWeight.w700,
+                          size: 16,
                           color: OmoriColors.ink,
                         ),
                       ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 20,
-                        color: OmoriColors.mutedInk,
+                      const SizedBox(height: 8),
+                      Text(
+                        decision.analysis!.interpretation,
+                        style: OmoriTheme.hand(
+                          size: 15,
+                          color: OmoriColors.mutedInk,
+                        ),
                       ),
-                      onPressed: () => Navigator.pop(context),
+                      const SizedBox(height: 10),
+                      StatDeltaChips(
+                        happinessDelta: decision.analysis!.happinessDelta,
+                        healthDelta: decision.analysis!.healthDelta,
+                        smartsDelta: decision.analysis!.smartsDelta,
+                        ambitionDelta: decision.analysis!.ambitionDelta,
+                      ),
+                    ],
+                  ] else if (tile.isCurrent) ...[
+                    Text(
+                      scenario.description,
+                      style: OmoriTheme.hand(size: 17, color: OmoriColors.ink),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (decision != null) ...[
-                  Text(
-                    scenario.description,
-                    style: OmoriTheme.hand(
-                      size: 16,
-                      color: OmoriColors.mutedInk,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: OmoriColors.pastelLavender.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '“${decision.decision.choiceText}”',
+                    const SizedBox(height: 10),
+                    Text(
+                      'Currently unfolding — return to the main screen to choose.',
                       style: OmoriTheme.hand(
-                        size: 17,
-                        weight: FontWeight.w700,
+                        size: 15,
                         color: OmoriColors.dreamIndigo,
                       ),
                     ),
-                  ),
-                  if (decision.analysis != null) ...[
-                    const SizedBox(height: 12),
+                  ] else ...[
                     Text(
-                      decision.analysis!.childReaction,
-                      style: OmoriTheme.hand(size: 16, color: OmoriColors.ink),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      decision.analysis!.interpretation,
+                      'This moment has not arrived yet. Keep living forward to uncover what happens at ${tile.ageLabel}.',
                       style: OmoriTheme.hand(
-                        size: 15,
+                        size: 16,
                         color: OmoriColors.mutedInk,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    StatDeltaChips(
-                      happinessDelta: decision.analysis!.happinessDelta,
-                      healthDelta: decision.analysis!.healthDelta,
-                      smartsDelta: decision.analysis!.smartsDelta,
-                      ambitionDelta: decision.analysis!.ambitionDelta,
-                    ),
                   ],
-                ] else if (tile.isCurrent) ...[
-                  Text(
-                    scenario.description,
-                    style: OmoriTheme.hand(size: 17, color: OmoriColors.ink),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Currently unfolding — return to the main screen to choose.',
-                    style: OmoriTheme.hand(
-                      size: 15,
-                      color: OmoriColors.dreamIndigo,
-                    ),
-                  ),
-                ] else ...[
-                  Text(
-                    'This moment has not arrived yet. Keep living forward to uncover what happens at ${tile.ageLabel}.',
-                    style: OmoriTheme.hand(
-                      size: 16,
-                      color: OmoriColors.mutedInk,
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -1000,46 +1104,58 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: _medallionYellow, width: 3),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isStart
-                            ? 'Birth — ${widget.player.name}'
-                            : 'The Rain — Age ${widget.targetAge}',
-                        style: OmoriTheme.hand(
-                          size: 21,
-                          weight: FontWeight.w700,
-                          color: OmoriColors.ink,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isStart
+                              ? 'Birth — ${widget.player.name}'
+                              : 'The Rain — Age ${widget.targetAge}',
+                          style: OmoriTheme.hand(
+                            size: 21,
+                            weight: FontWeight.w700,
+                            color: OmoriColors.ink,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 20,
-                        color: OmoriColors.mutedInk,
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: OmoriColors.mutedInk,
+                        ),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  isStart
-                      ? 'Reborn as your own parents to raise ${widget.player.name} from age 0.\n\nDream self: “${widget.player.dreamSelfSummary}”'
-                      : 'At age ${widget.targetAge}, the rainy crosswalk arrives once more. Every choice along this board shapes who ${widget.player.name} has become by that moment.',
-                  style: OmoriTheme.hand(
-                    size: 16,
-                    color: OmoriColors.mutedInk,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  _buildDetailBanner(
+                    skyAsset: WindowSceneBackground.skyAssetForMood('happy'),
+                    portraitAsset: isStart
+                        ? 'assets/images/portrait_infancy.jpg'
+                        : null,
+                    fullBleedAsset: isStart
+                        ? null
+                        : 'assets/images/crosswalk_rain.jpg',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isStart
+                        ? 'Reborn as your own parents to raise ${widget.player.name} from age 0.\n\nDream self: “${widget.player.dreamSelfSummary}”'
+                        : 'At age ${widget.targetAge}, the rainy crosswalk arrives once more. Every choice along this board shapes who ${widget.player.name} has become by that moment.',
+                    style: OmoriTheme.hand(
+                      size: 16,
+                      color: OmoriColors.mutedInk,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
