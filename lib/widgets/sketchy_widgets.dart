@@ -3,9 +3,77 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
+
+String childSpriteAssetForMood(String mood) {
+  switch (mood.toLowerCase()) {
+    case 'sad':
+    case 'anxious':
+    case 'quiet':
+      return 'assets/images/child_wah.svg';
+    default:
+      return 'assets/images/child_happy.svg';
+  }
+}
+
+String characterPortraitAssetForStage(String ageStage, String mood) {
+  final stage = ageStage.toLowerCase();
+  if (stage.contains('infan') ||
+      stage.contains('early') ||
+      stage.contains('child')) {
+    return childSpriteAssetForMood(mood);
+  }
+  if (stage.contains('pre-teen') || stage.contains('teen')) {
+    return 'assets/images/portrait_teen.jpg';
+  }
+  return 'assets/images/portrait_adult.jpg';
+}
+
+class ArtworkImage extends StatelessWidget {
+  final String assetPath;
+  final BoxFit fit;
+  final Alignment alignment;
+  final double? width;
+  final double? height;
+  final WidgetBuilder? fallbackBuilder;
+
+  const ArtworkImage({
+    super.key,
+    required this.assetPath,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
+    this.width,
+    this.height,
+    this.fallbackBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (assetPath.toLowerCase().endsWith('.svg')) {
+      return SvgPicture.asset(
+        assetPath,
+        fit: fit,
+        alignment: alignment,
+        width: width,
+        height: height,
+        placeholderBuilder: fallbackBuilder,
+      );
+    }
+    return Image.asset(
+      assetPath,
+      fit: fit,
+      alignment: alignment,
+      width: width,
+      height: height,
+      errorBuilder: fallbackBuilder == null
+          ? null
+          : (context, _, _) => fallbackBuilder!(context),
+    );
+  }
+}
 
 /// Hand-drawn sketchy ink box inspired by OMORI's dialogue & menu frames.
 class SketchBox extends StatelessWidget {
@@ -592,18 +660,6 @@ class OmoriPortrait extends StatelessWidget {
     this.size = 64,
   });
 
-  String get _assetForStage {
-    final stage = ageStage.toLowerCase();
-    if (stage.contains('infan')) return 'assets/images/portrait_infancy.jpg';
-    if (stage.contains('early') || stage.contains('child')) {
-      return 'assets/images/portrait_childhood.jpg';
-    }
-    if (stage.contains('pre-teen') || stage.contains('teen')) {
-      return 'assets/images/portrait_teen.jpg';
-    }
-    return 'assets/images/portrait_adult.jpg';
-  }
-
   Color get _moodAccent {
     switch (mood) {
       case 'happy':
@@ -638,10 +694,10 @@ class OmoriPortrait extends StatelessWidget {
               borderColor: _moodAccent,
               showShadow: false,
               strokeWidth: 2,
-              child: Image.asset(
-                _assetForStage,
+              child: ArtworkImage(
+                assetPath: characterPortraitAssetForStage(ageStage, mood),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => CustomPaint(
+                fallbackBuilder: (_) => CustomPaint(
                   painter: _PortraitPainter(ageStage: ageStage, mood: mood),
                 ),
               ),
@@ -1493,10 +1549,7 @@ class _SpaceParticlesPainter extends CustomPainter {
       oldDelegate.engine != engine;
 }
 
-/// Vibrant window-scene backdrop for the main choice screen (`GameScreen`).
-/// Renders a mood-reactive sky across the full viewport and places the
-/// age- & mood-reactive character staring out the window in the left fourth
-/// of the screen, with smooth cross-fades as the child grows and moods shift.
+/// Main choice-screen backdrop (`GameScreen`) with a mood-reactive character.
 class WindowSceneBackground extends StatelessWidget {
   final int age;
   final String mood;
@@ -1530,11 +1583,11 @@ class WindowSceneBackground extends StatelessWidget {
     }
   }
 
-  static String skyAssetForMood(String mood) =>
-      'assets/images/window/sky_${normalizedMood(mood)}.png';
+  static const String backgroundAsset = 'assets/images/background.png';
 
-  static String characterAssetForAge(int age) =>
-      'assets/images/window/standing_${ageBucket(age)}.png';
+  static String characterAssetForAge(int age, String mood) => age <= 2
+      ? childSpriteAssetForMood(mood)
+      : 'assets/images/window/standing_${ageBucket(age)}.png';
 
   List<Color> _fallbackSkyColors(String m) {
     switch (m) {
@@ -1574,8 +1627,7 @@ class WindowSceneBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final m = normalizedMood(mood);
     final stage = ageBucket(age);
-    final skyAsset = skyAssetForMood(m);
-    final charAsset = characterAssetForAge(age);
+    final charAsset = characterAssetForAge(age, m);
     final isDarkSky = m == 'quiet' || m == 'anxious' || m == 'sad';
 
     return LayoutBuilder(
@@ -1588,19 +1640,19 @@ class WindowSceneBackground extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            // 1. Full-bleed mood-reactive sky backdrop with smooth cross-fade
+            // 1. Full-bleed shared pixel-art background
             Positioned.fill(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 700),
                 switchInCurve: Curves.easeInOutSine,
                 switchOutCurve: Curves.easeInOutSine,
-                child: Image.asset(
-                  skyAsset,
-                  key: ValueKey('sky_$m'),
+                child: ArtworkImage(
+                  assetPath: backgroundAsset,
+                  key: const ValueKey('game_background'),
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
-                  errorBuilder: (_, _, _) => DecoratedBox(
+                  fallbackBuilder: (_) => DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
@@ -1659,13 +1711,13 @@ class WindowSceneBackground extends StatelessWidget {
                         _characterMoodTint(m),
                         BlendMode.srcATop,
                       ),
-                      child: Image.asset(
-                        charAsset,
+                      child: ArtworkImage(
+                        assetPath: charAsset,
                         fit: BoxFit.contain,
                         alignment: Alignment.bottomCenter,
                         width: leftFourthWidth,
                         height: double.infinity,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        fallbackBuilder: (_) => const SizedBox.shrink(),
                       ),
                     ),
                   ),

@@ -129,8 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const SizedBox(height: 10),
                       const SketchImageFrame(
-                        assetPath: 'assets/images/title_banner.jpg',
-                        aspectRatio: 16 / 9,
+                        assetPath: 'assets/images/banner.gif',
+                        aspectRatio: 2304 / 1368,
                         maxWidth: 380,
                         maxHeight: 214,
                       ),

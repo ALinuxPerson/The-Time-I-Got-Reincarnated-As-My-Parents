@@ -43,17 +43,8 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
     }
   }
 
-  String _portraitForStage(String ageStage) {
-    final s = ageStage.toLowerCase();
-    if (s.contains('infan')) return 'assets/images/portrait_infancy.jpg';
-    if (s.contains('early') || s.contains('child')) {
-      return 'assets/images/portrait_childhood.jpg';
-    }
-    if (s.contains('pre-teen') || s.contains('teen')) {
-      return 'assets/images/portrait_teen.jpg';
-    }
-    return 'assets/images/portrait_adult.jpg';
-  }
+  String _portraitForStage(String ageStage, {String mood = 'neutral'}) =>
+      characterPortraitAssetForStage(ageStage, mood);
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +69,7 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
         center: birthPos,
         title: 'Birth',
         subtitle: 'age 0',
-        assetPath: 'assets/images/portrait_infancy.jpg',
+        assetPath: characterPortraitAssetForStage('Infancy', 'neutral'),
         state: _CardState.completed,
       ),
     );
@@ -93,6 +84,9 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
           : scenario.minAge;
       final isDone = i < completedCount;
       final isCurrent = i == completedCount;
+      final portraitMood = isDone && i < widget.decisions.length
+          ? widget.decisions[i].analysis?.mood ?? 'neutral'
+          : 'neutral';
 
       final x = startX + (i + 1) * stepSpacing;
       final yOffset = (i % 2 == 0) ? -48.0 : 48.0;
@@ -145,7 +139,7 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
           center: cardPos,
           title: isDone || isCurrent ? scenario.title : '???',
           subtitle: 'age $age',
-          assetPath: _portraitForStage(scenario.ageStage),
+          assetPath: _portraitForStage(scenario.ageStage, mood: portraitMood),
           state: isDone
               ? _CardState.completed
               : (isCurrent ? _CardState.current : _CardState.locked),
@@ -561,10 +555,10 @@ class _MilestoneCardWidget extends StatelessWidget {
                         ),
                       ),
                     )
-                  : Image.asset(
-                      node.assetPath,
+                  : ArtworkImage(
+                      assetPath: node.assetPath,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      fallbackBuilder: (_) => Container(
                         color: OmoriColors.pastelLavender,
                         alignment: Alignment.center,
                         child: Text(
@@ -819,20 +813,11 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
     return poly;
   }
 
-  String _portraitForStage(String ageStage) {
-    final s = ageStage.toLowerCase();
-    if (s.contains('infan')) return 'assets/images/portrait_infancy.jpg';
-    if (s.contains('early') || s.contains('child')) {
-      return 'assets/images/portrait_childhood.jpg';
-    }
-    if (s.contains('pre-teen') || s.contains('teen')) {
-      return 'assets/images/portrait_teen.jpg';
-    }
-    return 'assets/images/portrait_adult.jpg';
-  }
+  String _portraitForStage(String ageStage, {String mood = 'neutral'}) =>
+      characterPortraitAssetForStage(ageStage, mood);
 
   Widget _buildDetailBanner({
-    required String skyAsset,
+    required String backgroundAsset,
     String? portraitAsset,
     String? fullBleedAsset,
     bool locked = false,
@@ -852,10 +837,10 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    skyAsset,
+                  ArtworkImage(
+                    assetPath: backgroundAsset,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) =>
+                    fallbackBuilder: (_) =>
                         Container(color: OmoriColors.pastelLavender),
                   ),
                   if (locked)
@@ -890,10 +875,10 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(6),
-                          child: Image.asset(
-                            portraitAsset,
+                          child: ArtworkImage(
+                            assetPath: portraitAsset,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
+                            fallbackBuilder: (_) =>
                                 Container(color: OmoriColors.warmPaper),
                           ),
                         ),
@@ -915,10 +900,11 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
         : null;
     final scenario = widget.scenarios[tile.index];
     final mood = decision?.analysis?.mood ?? 'neutral';
-    final skyAsset = WindowSceneBackground.skyAssetForMood(
-      tile.isDone || tile.isCurrent ? mood : 'quiet',
+    final backgroundAsset = WindowSceneBackground.backgroundAsset;
+    final portraitAsset = _portraitForStage(
+      scenario.ageStage,
+      mood: tile.isDone || tile.isCurrent ? mood : 'neutral',
     );
-    final portraitAsset = _portraitForStage(scenario.ageStage);
 
     showDialog<void>(
       context: context,
@@ -998,7 +984,7 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                   ),
                   const SizedBox(height: 12),
                   _buildDetailBanner(
-                    skyAsset: skyAsset,
+                    backgroundAsset: backgroundAsset,
                     portraitAsset: portraitAsset,
                     locked: !tile.isDone && !tile.isCurrent,
                   ),
@@ -1136,9 +1122,9 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                   ),
                   const SizedBox(height: 12),
                   _buildDetailBanner(
-                    skyAsset: WindowSceneBackground.skyAssetForMood('happy'),
+                    backgroundAsset: WindowSceneBackground.backgroundAsset,
                     portraitAsset: isStart
-                        ? 'assets/images/portrait_infancy.jpg'
+                        ? characterPortraitAssetForStage('Infancy', 'neutral')
                         : null,
                     fullBleedAsset: isStart
                         ? null
