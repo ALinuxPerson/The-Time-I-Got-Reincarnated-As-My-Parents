@@ -47,216 +47,304 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openApiKeyDialog() async {
-    final controller = TextEditingController(text: AiService.runtimeApiKey ?? '');
+    var apiKey = AiService.runtimeApiKey ?? '';
     await showDialog<void>(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        child: SketchBox(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'GEMINI API KEY (OPTIONAL)',
-                style: OmoriTheme.pixel(size: 22),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Add a Gemini API key for live AI interpretations and story roadmaps. Leave blank to use the built-in offline story engine.',
-                style: OmoriTheme.hand(size: 16, color: OmoriColors.mutedInk),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                obscureText: true,
-                style: OmoriTheme.hand(size: 16),
-                decoration: const InputDecoration(hintText: 'AIza...'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: SketchButton(
-                      label: 'Cancel',
-                      showPointer: false,
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SketchButton(
-                      label: 'Save',
-                      inverted: true,
-                      showPointer: false,
-                      onPressed: () {
-                        AiService.runtimeApiKey = controller.text.trim();
-                        Navigator.pop(context);
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    controller.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: OmoriColors.whiteSpace,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 460,
-                minHeight: MediaQuery.of(context).size.height - 64,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const HangingLightbulb(cordHeight: 28),
-                  Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      const SketchImageFrame(
-                        assetPath: 'assets/images/banner.gif',
-                        aspectRatio: 2304 / 1368,
-                        maxWidth: 380,
-                        maxHeight: 214,
-                      ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'THE TIME I GOT\nREINCARNATED AS\nMY PARENTS',
-                      textAlign: TextAlign.center,
-                      style: OmoriTheme.hand(
-                        size: 30,
-                        weight: FontWeight.w700,
-                        height: 1.12,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'welcome to white space.\nyou already know how it ends — how will you live the years before it?',
-                      textAlign: TextAlign.center,
-                      style: OmoriTheme.hand(
-                        size: 16,
-                        color: OmoriColors.mutedInk,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (_loading)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: OmoriColors.ink,
-                          ),
-                        ),
-                      )
-                    else ...[
-                      if (_inProgressSession != null &&
-                          _inProgressPlayer != null) ...[
-                        SketchButton(
-                          label:
-                              'Continue: ${_inProgressPlayer!.name} (Age ${_inProgressSession!.currentAge} / ${_inProgressSession!.targetAge})',
-                          inverted: true,
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => GameScreen(
-                                  sessionId: _inProgressSession!.sessionId!,
-                                ),
-                              ),
-                            );
-                            _loadState();
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      SketchButton(
-                        label: 'Begin a New Life',
-                        inverted: _inProgressSession == null,
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const OnboardingScreen(),
-                            ),
-                          );
-                          _loadState();
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      SketchButton(
-                        label: _completedCount > 0
-                            ? 'Past Lives & Memory Album ($_completedCount)'
-                            : 'Past Lives & Memory Album',
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const PastLivesScreen(),
-                            ),
-                          );
-                          _loadState();
-                        },
-                      ),
-                    ],
-                  ],
+        child: SingleChildScrollView(
+          child: SketchBox(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'GEMINI API KEY (OPTIONAL)',
+                  style: OmoriTheme.pixel(size: 22),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 24, bottom: 16),
-                  child: GestureDetector(
-                    onTap: _openApiKeyDialog,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          AiService.hasApiKey ? Icons.auto_awesome : Icons.key,
-                          size: 15,
-                          color: AiService.hasApiKey
-                              ? OmoriColors.dreamIndigo
-                              : OmoriColors.mutedInk,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            AiService.hasApiKey
-                                ? 'GEMINI AI CONNECTED (TAP TO EDIT)'
-                                : 'OFFLINE STORY ENGINE (TAP TO ADD GEMINI KEY)',
-                            overflow: TextOverflow.ellipsis,
-                            style: OmoriTheme.pixel(
-                              size: 15,
-                              color: AiService.hasApiKey
-                                  ? OmoriColors.dreamIndigo
-                                  : OmoriColors.mutedInk,
-                            ),
-                          ),
-                        ),
-                      ],
+                const SizedBox(height: 8),
+                Text(
+                  'Add a Gemini API key for live AI interpretations and story roadmaps. Leave blank to use the built-in offline story engine.',
+                  style: OmoriTheme.hand(size: 16, color: OmoriColors.mutedInk),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  initialValue: apiKey,
+                  onChanged: (value) => apiKey = value,
+                  obscureText: true,
+                  style: OmoriTheme.hand(size: 16),
+                  decoration: const InputDecoration(hintText: 'AIza...'),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SketchButton(
+                        label: 'Cancel',
+                        showPointer: false,
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SketchButton(
+                        label: 'Save',
+                        inverted: true,
+                        showPointer: false,
+                        onPressed: () {
+                          AiService.runtimeApiKey = apiKey.trim();
+                          Navigator.pop(context);
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        ),
+      ),
+    );
+  }
+
+  static const _night = Color(0xFF1C1929);
+  static const _paper = Color(0xFFFFF2DC);
+  static const _mutedPaper = Color(0xFFE1D6C9);
+  static const _sunlight = Color(0xFFFFD294);
+
+  Future<void> _openScreen(Widget screen) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
+    if (mounted) await _loadState();
+  }
+
+  ButtonStyle _menuStyle(Color foreground) {
+    return TextButton.styleFrom(
+      foregroundColor: foreground,
+      backgroundColor: Colors.transparent,
+      overlayColor: _sunlight,
+      minimumSize: const Size(0, 44),
+      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+      alignment: Alignment.centerLeft,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(3)),
+      ),
+    );
+  }
+
+  Widget _menuEntry(
+    String label,
+    VoidCallback onPressed, {
+    bool primary = false,
+  }) {
+    final color = primary ? _sunlight : _paper;
+
+    return TextButton(
+      onPressed: onPressed,
+      style: _menuStyle(color),
+      child: Row(
+        children: [
+          Icon(
+            primary
+                ? Icons.arrow_right_alt_rounded
+                : Icons.chevron_right_rounded,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              label,
+              style: OmoriTheme.hand(
+                size: 19,
+                color: color,
+                height: 1.15,
+                weight: primary ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _inProgressSession;
+    final player = _inProgressPlayer;
+    final hasSavedLife = session != null && player != null;
+    final hasApiKey = AiService.hasApiKey;
+
+    return Scaffold(
+      backgroundColor: _night,
+      body: LayoutBuilder(
+        builder: (context, viewport) {
+          final wide = viewport.maxWidth >= 720;
+          final compact = viewport.maxHeight < 620;
+          final horizontalInset = (viewport.maxWidth * 0.065).clamp(
+            22.0,
+            110.0,
+          );
+          final verticalInset = compact
+              ? 18.0
+              : (viewport.maxHeight * 0.065).clamp(32.0, 68.0);
+          final titleSize = wide
+              ? (viewport.maxHeight * 0.08).clamp(36.0, 62.0)
+              : 36.0;
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/images/banner.gif',
+                fit: BoxFit.cover,
+                alignment: Alignment(wide ? 0.18 : 0.50, 0.9),
+                filterQuality: FilterQuality.none,
+                excludeFromSemantics: true,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: wide
+                        ? const [Color(0x651C1929), Color(0x001C1929)]
+                        : [
+                            Color(0xEC1C1929),
+                            Color(0xBF1C1929),
+                            compact ? Color(0xAE1C1929) : Color(0x141C1929),
+                          ],
+                    stops: wide ? const [0.12, 0.66] : const [0, 0.57, 1],
+                  ),
+                ),
+              ),
+              if (wide)
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xEE1C1929),
+                        Color(0xA31C1929),
+                        Color(0x001C1929),
+                      ],
+                      stops: [0, 0.30, 0.73],
+                    ),
+                  ),
+                ),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalInset,
+                    vertical: verticalInset,
+                  ),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 550),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.only(bottom: compact ? 12 : 18),
+                            child: Semantics(
+                              header: true,
+                              child: Text(
+                                'The Time I Got\nReincarnated as\nMy Parents',
+                                style: OmoriTheme.hand(
+                                  size: titleSize,
+                                  height: 0.99,
+                                  color: _paper,
+                                  weight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'You already know how it ends.\nHow will you live the years before it?',
+                            style: OmoriTheme.hand(
+                              size: 15,
+                              height: 1.28,
+                              color: _mutedPaper,
+                            ),
+                          ),
+                          SizedBox(height: compact ? 12 : 22),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 410),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (_loading)
+                                  const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(11),
+                                      child: SizedBox.square(
+                                        dimension: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _sunlight,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else ...[
+                                  if (hasSavedLife)
+                                    _menuEntry(
+                                      'Continue: ${player.name} (Age ${session.currentAge} / ${session.targetAge})',
+                                      () => _openScreen(
+                                        GameScreen(
+                                          sessionId: session.sessionId!,
+                                        ),
+                                      ),
+                                      primary: true,
+                                    ),
+                                  _menuEntry(
+                                    'Begin a New Life',
+                                    () => _openScreen(const OnboardingScreen()),
+                                    primary: !hasSavedLife,
+                                  ),
+                                  _menuEntry(
+                                    _completedCount > 0
+                                        ? 'Past Lives & Memory Album ($_completedCount)'
+                                        : 'Past Lives & Memory Album',
+                                    () => _openScreen(const PastLivesScreen()),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: compact ? 6 : 14),
+                          TextButton.icon(
+                            onPressed: _openApiKeyDialog,
+                            style: _menuStyle(_mutedPaper),
+                            icon: Icon(
+                              hasApiKey ? Icons.auto_awesome : Icons.key,
+                              size: 15,
+                            ),
+                            label: Text(
+                              hasApiKey
+                                  ? 'Gemini AI connected · Edit key'
+                                  : 'Offline story engine · Add Gemini key',
+                              style: OmoriTheme.hand(
+                                size: 13,
+                                color: _mutedPaper,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
