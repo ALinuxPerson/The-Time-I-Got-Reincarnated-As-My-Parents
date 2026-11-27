@@ -1,13 +1,14 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../data/database_helper.dart';
 import '../models/models.dart';
-import '../services/ai_service.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
-import '../widgets/sketchy_widgets.dart';
 import 'game_screen.dart';
 import 'onboarding_screen.dart';
 import 'past_lives_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,16 +17,98 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  static const _titleVolume = 0.55;
+  static const _fadeSteps = 12;
+  static const _fadeInterval = Duration(milliseconds: 30);
+
   GameSession? _inProgressSession;
   Player? _inProgressPlayer;
   int _completedCount = 0;
   bool _loading = true;
+  AudioPlayer? _titleMusic;
+  Future<void> _musicUpdate = Future<void>.value();
+  bool _musicReady = false;
+  bool _musicPlaying = false;
+  ModalRoute<dynamic>? _titleRoute;
+  bool _settingsOpen = false;
+
+  bool get _appIsActive {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  bool get _shouldPlayMusic =>
+      mounted &&
+      _appIsActive &&
+      (_settingsOpen || (_titleRoute?.isCurrent ?? true));
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _titleRoute = ModalRoute.of(context);
+    _syncTitleMusic();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) => _syncTitleMusic();
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _syncTitleMusic();
+    super.dispose();
+  }
+
+  void _syncTitleMusic() {
+    // Serialize native player operations across navigation and app focus changes.
+    _musicUpdate = _musicUpdate.then((_) async {
+      try {
+        final player = _titleMusic;
+        if (!mounted) {
+          _titleMusic = null;
+          await player?.dispose();
+        } else if (_shouldPlayMusic) {
+          final music = _titleMusic ??= (AudioPlayer()..positionUpdater = null);
+          if (!_musicReady) {
+            await music.setReleaseMode(ReleaseMode.loop);
+            await music.setSource(AssetSource('title-screen.mp3'));
+            _musicReady = true;
+          }
+          if (_shouldPlayMusic && music.volume != _titleVolume) {
+            await music.setVolume(_titleVolume);
+          }
+          if (_shouldPlayMusic && !_musicPlaying) {
+            await music.resume();
+            _musicPlaying = true;
+          }
+        } else if (player != null && _musicPlaying) {
+          if (_appIsActive) await _fadeOutMusic(player);
+          if (mounted && !_shouldPlayMusic) {
+            await player.pause();
+            _musicPlaying = false;
+          }
+        }
+      } catch (error) {
+        debugPrint('Title music unavailable: $error');
+      }
+    });
+  }
+
+  Future<void> _fadeOutMusic(AudioPlayer player) async {
+    final startVolume = player.volume;
+    for (var step = 1; step <= _fadeSteps; step++) {
+      await Future<void>.delayed(_fadeInterval);
+      if (!mounted || !_appIsActive || _shouldPlayMusic) return;
+      await player.setVolume(startVolume * (1 - step / _fadeSteps));
+    }
   }
 
   Future<void> _loadState() async {
@@ -46,68 +129,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _openApiKeyDialog() async {
-    var apiKey = AiService.runtimeApiKey ?? '';
-    await showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: SingleChildScrollView(
-          child: SketchBox(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'GEMINI API KEY (OPTIONAL)',
-                  style: OmoriTheme.pixel(size: 22),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Add a Gemini API key for live AI interpretations and story roadmaps. Leave blank to use the built-in offline story engine.',
-                  style: OmoriTheme.hand(size: 16, color: OmoriColors.mutedInk),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  initialValue: apiKey,
-                  onChanged: (value) => apiKey = value,
-                  obscureText: true,
-                  style: OmoriTheme.hand(size: 16),
-                  decoration: const InputDecoration(hintText: 'AIza...'),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SketchButton(
-                        label: 'Cancel',
-                        showPointer: false,
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: SketchButton(
-                        label: 'Save',
-                        inverted: true,
-                        showPointer: false,
-                        onPressed: () {
-                          AiService.runtimeApiKey = apiKey.trim();
-                          Navigator.pop(context);
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _openSettings() async {
+    if (_settingsOpen) return;
+    _settingsOpen = true;
+    try {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
+    } finally {
+      _settingsOpen = false;
+      if (mounted) _syncTitleMusic();
+    }
   }
 
   static const _night = Color(0xFF1C1929);
@@ -125,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   ButtonStyle _menuStyle(Color foreground) {
     return TextButton.styleFrom(
+      enableFeedback: false,
       foregroundColor: foreground,
       backgroundColor: Colors.transparent,
       overlayColor: _sunlight,
@@ -141,11 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
     String label,
     VoidCallback onPressed, {
     bool primary = false,
+    UiSound sound = UiSound.advance,
   }) {
     final color = primary ? _sunlight : _paper;
 
     return TextButton(
-      onPressed: onPressed,
+      onPressed: SoundService.withUiSound(sound, onPressed),
       style: _menuStyle(color),
       child: Row(
         children: [
@@ -177,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final session = _inProgressSession;
     final player = _inProgressPlayer;
     final hasSavedLife = session != null && player != null;
-    final hasApiKey = AiService.hasApiKey;
 
     return Scaffold(
       backgroundColor: _night,
@@ -313,6 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ? 'Past Lives & Memory Album ($_completedCount)'
                                         : 'Past Lives & Memory Album',
                                     () => _openScreen(const PastLivesScreen()),
+                                    sound: UiSound.memory,
                                   ),
                                 ],
                               ],
@@ -320,16 +354,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           SizedBox(height: compact ? 6 : 14),
                           TextButton.icon(
-                            onPressed: _openApiKeyDialog,
-                            style: _menuStyle(_mutedPaper),
-                            icon: Icon(
-                              hasApiKey ? Icons.auto_awesome : Icons.key,
-                              size: 15,
+                            onPressed: SoundService.withUiSound(
+                              UiSound.advance,
+                              _openSettings,
                             ),
+                            style: _menuStyle(_mutedPaper),
+                            icon: const Icon(Icons.settings_outlined, size: 17),
                             label: Text(
-                              hasApiKey
-                                  ? 'Gemini AI connected · Edit key'
-                                  : 'Offline story engine · Add Gemini key',
+                              'Settings',
                               style: OmoriTheme.hand(
                                 size: 13,
                                 color: _mutedPaper,

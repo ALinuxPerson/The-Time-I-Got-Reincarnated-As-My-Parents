@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/database_helper.dart';
 import '../models/models.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'roadmap_screen.dart';
@@ -42,7 +43,10 @@ class _PastLivesScreenState extends State<PastLivesScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: OmoriColors.ink),
-          onPressed: () => Navigator.pop(context),
+          onPressed: SoundService.withUiSound(
+            UiSound.back,
+            () => Navigator.pop(context),
+          ),
         ),
         title: Text('PAST LIVES ALBUM', style: OmoriTheme.pixel(size: 22)),
         centerTitle: true,
@@ -81,6 +85,7 @@ class _PastLivesScreenState extends State<PastLivesScreen> {
                   final achieved = item.roadmap?.dreamAchieved ?? false;
                   return GestureDetector(
                     onTap: () {
+                      SoundService.playUi(UiSound.memory);
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(

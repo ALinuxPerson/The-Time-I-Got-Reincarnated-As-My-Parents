@@ -170,6 +170,7 @@ class _SketchBoxPainter extends CustomPainter {
 class SketchButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
+  final UiSound sound;
   final bool inverted;
   final bool showPointer;
   final Color? accentColor;
@@ -179,6 +180,7 @@ class SketchButton extends StatefulWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.sound = UiSound.select,
     this.inverted = false,
     this.showPointer = true,
     this.accentColor,
@@ -207,7 +209,7 @@ class _SketchButtonState extends State<SketchButton> {
       onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
       onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
       onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
-      onTap: widget.onPressed,
+      onTap: SoundService.withUiSound(widget.sound, widget.onPressed),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
         transform: Matrix4.translationValues(

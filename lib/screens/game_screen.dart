@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../models/models.dart';
 import '../services/ai_service.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'ending_screen.dart';
@@ -95,6 +96,7 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _submitDecision(String choiceText) async {
     final trimmed = choiceText.trim();
     if (trimmed.isEmpty || _submitting || !_hasMoreScenarios) return;
+    SoundService.playUi(UiSound.confirm);
 
     final player = _player!;
     final scenario = _scenarios[_nextScenarioIndex];
@@ -168,6 +170,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _continueFromReaction() {
+    SoundService.playUi(UiSound.advance);
     if (!_hasMoreScenarios) {
       _goToEnding();
       return;
@@ -282,6 +285,7 @@ class _GameScreenState extends State<GameScreen> {
                               size: 20,
                             ),
                             onPressed: () {
+                              SoundService.playUi(UiSound.memory);
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
@@ -305,8 +309,10 @@ class _GameScreenState extends State<GameScreen> {
                               color: OmoriColors.ink,
                               size: 20,
                             ),
-                            onPressed: () =>
-                                setState(() => _showStats = !_showStats),
+                            onPressed: SoundService.withUiSound(
+                              UiSound.select,
+                              () => setState(() => _showStats = !_showStats),
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Leave',
@@ -315,7 +321,10 @@ class _GameScreenState extends State<GameScreen> {
                               color: OmoriColors.ink,
                               size: 20,
                             ),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: SoundService.withUiSound(
+                              UiSound.back,
+                              () => Navigator.pop(context),
+                            ),
                           ),
                         ],
                       ),
@@ -440,7 +449,10 @@ class _GameScreenState extends State<GameScreen> {
           delay: const Duration(milliseconds: 180),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: () => setState(() => _optionsOpen = !_optionsOpen),
+            onTap: SoundService.withUiSound(
+              UiSound.select,
+              () => setState(() => _optionsOpen = !_optionsOpen),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
@@ -491,7 +503,10 @@ class _GameScreenState extends State<GameScreen> {
                 if (!_showCustomInput)
                   Center(
                     child: TextButton(
-                      onPressed: () => setState(() => _showCustomInput = true),
+                      onPressed: SoundService.withUiSound(
+                        UiSound.select,
+                        () => setState(() => _showCustomInput = true),
+                      ),
                       child: Text(
                         'write your own...',
                         style: OmoriTheme.hand(
@@ -535,8 +550,10 @@ class _GameScreenState extends State<GameScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             TextButton(
-                              onPressed: () =>
-                                  setState(() => _showCustomInput = false),
+                              onPressed: SoundService.withUiSound(
+                                UiSound.back,
+                                () => setState(() => _showCustomInput = false),
+                              ),
                               child: Text(
                                 'cancel',
                                 style: OmoriTheme.hand(

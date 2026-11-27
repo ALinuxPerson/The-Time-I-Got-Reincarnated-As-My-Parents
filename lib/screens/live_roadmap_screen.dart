@@ -4,6 +4,7 @@ import 'dart:ui' show PathMetric;
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 
@@ -29,7 +30,15 @@ class LiveRoadmapScreen extends StatefulWidget {
   State<LiveRoadmapScreen> createState() => _LiveRoadmapScreenState();
 }
 
-enum _RoadmapStyle { storyMap, lifeBoard }
+enum _RoadmapStyle {
+  storyMap('Story Map'),
+  lifeBoard('Life Board'),
+  memoryJournal('Memory Journal');
+
+  const _RoadmapStyle(this.label);
+
+  final String label;
+}
 
 class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
   int? _selectedDecisionIndex;
@@ -41,6 +50,11 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
     if (widget.decisions.isNotEmpty) {
       _selectedDecisionIndex = widget.decisions.length - 1;
     }
+  }
+
+  void _previewDecision(int index) {
+    SoundService.playUi(UiSound.select);
+    setState(() => _selectedDecisionIndex = index);
   }
 
   String _portraitForStage(String ageStage, {String mood = 'neutral'}) =>
@@ -184,46 +198,50 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Quiet borderless header with view-comparison toggle
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 12, 12, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '${widget.player.name}’s path',
-                            overflow: TextOverflow.ellipsis,
-                            style: OmoriTheme.hand(
-                              size: 20,
-                              color: OmoriColors.mutedInk,
-                            ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 550;
+                  final toggle = _RoadmapStyleToggle(
+                    style: _style,
+                    onChanged: (next) => setState(() => _style = next),
+                  );
+                  final header = Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${widget.player.name}’s path',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: OmoriTheme.hand(
+                            size: 20,
+                            color: OmoriColors.mutedInk,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        _RoadmapStyleToggle(
-                          style: _style,
-                          onChanged: (next) => setState(() => _style = next),
+                      ),
+                      if (!compact) Flexible(flex: 2, child: toggle),
+                      IconButton(
+                        tooltip: 'Close roadmap',
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: OmoriColors.mutedInk,
+                          size: 20,
                         ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Close map',
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: OmoriColors.mutedInk,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+                        onPressed: SoundService.withUiSound(
+                          UiSound.back,
+                          () => Navigator.pop(context),
+                        ),
+                      ),
+                    ],
+                  );
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [header, if (compact) toggle],
+                  );
+                },
               ),
             ),
-
-            // Switchable roadmap body: current Story Map vs new Game-of-Life Board
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 320),
@@ -257,9 +275,8 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
                                   height: 22,
                                   child: GestureDetector(
                                     onTap: dot.decisionIndex != null
-                                        ? () => setState(
-                                            () => _selectedDecisionIndex =
-                                                dot.decisionIndex,
+                                        ? () => _previewDecision(
+                                            dot.decisionIndex!,
                                           )
                                         : null,
                                     child: Center(
@@ -308,9 +325,8 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
                                         card.decisionIndex ==
                                             _selectedDecisionIndex,
                                     onTap: card.decisionIndex != null
-                                        ? () => setState(
-                                            () => _selectedDecisionIndex =
-                                                card.decisionIndex,
+                                        ? () => _previewDecision(
+                                            card.decisionIndex!,
                                           )
                                         : null,
                                   ),
@@ -319,7 +335,8 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
                           ),
                         ),
                       )
-                    : _GameOfLifeBoardView(
+                    : _style == _RoadmapStyle.lifeBoard
+                    ? _GameOfLifeBoardView(
                         key: const ValueKey('roadmap_life_board'),
                         player: widget.player,
                         scenarios: widget.scenarios,
@@ -329,6 +346,12 @@ class _LiveRoadmapScreenState extends State<LiveRoadmapScreen> {
                         selectedDecisionIndex: _selectedDecisionIndex,
                         onSelectDecision: (idx) =>
                             setState(() => _selectedDecisionIndex = idx),
+                      )
+                    : _MemoryJournalView(
+                        key: const ValueKey('roadmap_memory_journal'),
+                        player: widget.player,
+                        decisions: widget.decisions,
+                        hasRemainingMilestones: completedCount < totalSteps,
                       ),
               ),
             ),
@@ -617,19 +640,20 @@ class _RoadmapStyleToggle extends StatelessWidget {
         color: OmoriColors.pastelLavender.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        spacing: 2,
+        runSpacing: 2,
         children: [
-          _ToggleChip(
-            label: 'Story Map',
-            active: style == _RoadmapStyle.storyMap,
-            onTap: () => onChanged(_RoadmapStyle.storyMap),
-          ),
-          _ToggleChip(
-            label: 'Life Board',
-            active: style == _RoadmapStyle.lifeBoard,
-            onTap: () => onChanged(_RoadmapStyle.lifeBoard),
-          ),
+          for (final option in _RoadmapStyle.values)
+            _ToggleChip(
+              label: option.label,
+              active: style == option,
+              onTap: () {
+                if (style == option) return;
+                SoundService.playUi(UiSound.select);
+                onChanged(option);
+              },
+            ),
         ],
       ),
     );
@@ -649,22 +673,111 @@ class _ToggleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? OmoriColors.dreamIndigo : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: OmoriTheme.hand(
-            size: 14,
-            weight: FontWeight.w700,
-            color: active ? OmoriColors.paper : OmoriColors.mutedInk,
+    const radius = BorderRadius.all(Radius.circular(8));
+
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: active ? OmoriColors.dreamIndigo : Colors.transparent,
+              borderRadius: radius,
+            ),
+            child: Text(
+              label,
+              style: OmoriTheme.hand(
+                size: 14,
+                weight: FontWeight.w700,
+                color: active ? OmoriColors.paper : OmoriColors.mutedInk,
+              ),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemoryJournalView extends StatelessWidget {
+  final Player player;
+  final List<DecisionWithDetails> decisions;
+  final bool hasRemainingMilestones;
+
+  const _MemoryJournalView({
+    super.key,
+    required this.player,
+    required this.decisions,
+    required this.hasRemainingMilestones,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: ListView(
+          key: const PageStorageKey('memory_journal_scroll'),
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(player.name, style: OmoriTheme.hand(size: 28)),
+            const SizedBox(height: 8),
+            Text(player.dreamSelfSummary, style: OmoriTheme.hand()),
+            const SizedBox(height: 32),
+            if (decisions.isEmpty)
+              Text(
+                'Your first memory is still ahead.',
+                style: OmoriTheme.hand(color: OmoriColors.mutedInk),
+              ),
+            for (final entry in decisions) ...[
+              Text(
+                'AGE ${entry.decision.ageAtDecision} YEARS',
+                style: OmoriTheme.pixel(size: 16),
+              ),
+              const SizedBox(height: 8),
+              SketchBox(
+                showShadow: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.scenario.title,
+                      style: OmoriTheme.hand(size: 26),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(entry.decision.choiceText, style: OmoriTheme.hand()),
+                    if (entry.analysis case final analysis?) ...[
+                      const SizedBox(height: 12),
+                      Text(analysis.childReaction, style: OmoriTheme.hand()),
+                      const SizedBox(height: 12),
+                      Text(
+                        analysis.interpretation,
+                        style: OmoriTheme.hand(
+                          size: 16,
+                          color: OmoriColors.mutedInk,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+            if (decisions.isNotEmpty)
+              Text(
+                hasRemainingMilestones
+                    ? 'The rest is unwritten.'
+                    : 'All the years you remember.',
+                style: OmoriTheme.hand(size: 16, color: OmoriColors.mutedInk),
+              ),
+          ],
         ),
       ),
     );
@@ -891,6 +1004,7 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
   }
 
   void _showTileDetailDialog(_BoardTileData tile) {
+    SoundService.playUi(tile.isDone ? UiSound.memory : UiSound.select);
     if (tile.isDone) {
       widget.onSelectDecision(tile.index);
     }
@@ -978,7 +1092,10 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                           size: 20,
                           color: OmoriColors.mutedInk,
                         ),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: SoundService.withUiSound(
+                          UiSound.back,
+                          () => Navigator.pop(context),
+                        ),
                       ),
                     ],
                   ),
@@ -1076,6 +1193,7 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
   }
 
   void _showMedallionDialog({required bool isStart}) {
+    SoundService.playUi(UiSound.memory);
     showDialog<void>(
       context: context,
       builder: (context) => Dialog(
@@ -1116,7 +1234,10 @@ class _GameOfLifeBoardViewState extends State<_GameOfLifeBoardView> {
                           size: 20,
                           color: OmoriColors.mutedInk,
                         ),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: SoundService.withUiSound(
+                          UiSound.back,
+                          () => Navigator.pop(context),
+                        ),
                       ),
                     ],
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../models/models.dart';
 import '../services/ai_service.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'roadmap_screen.dart';
@@ -255,6 +256,7 @@ class _EndingScreenState extends State<EndingScreen> {
                     accentColor: isDeathBeat
                         ? OmoriColors.redAccent
                         : OmoriColors.ink,
+                    sound: isMoralBeat ? UiSound.memory : UiSound.advance,
                     onPressed: _nextBeat,
                   ),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/database_helper.dart';
 import '../models/models.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'home_screen.dart';
@@ -61,7 +62,10 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: OmoriColors.ink),
-          onPressed: () => Navigator.pop(context),
+          onPressed: SoundService.withUiSound(
+            UiSound.back,
+            () => Navigator.pop(context),
+          ),
         ),
         title: Text('MEMORY TIMELINE', style: OmoriTheme.pixel(size: 22)),
         centerTitle: true,
@@ -130,7 +134,10 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
                   ),
                   const Divider(height: 22, color: OmoriColors.ink),
                   GestureDetector(
-                    onTap: () => setState(() => _showStats = !_showStats),
+                    onTap: SoundService.withUiSound(
+                      UiSound.select,
+                      () => setState(() => _showStats = !_showStats),
+                    ),
                     child: Text(
                       _showStats ? 'FINAL STATS ▴' : 'FINAL STATS ▾',
                       style: OmoriTheme.pixel(
@@ -197,6 +204,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
             const SizedBox(height: 24),
             SketchButton(
               label: 'Live Another Life',
+              sound: UiSound.confirm,
               inverted: true,
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
@@ -211,6 +219,7 @@ class _RoadmapScreenState extends State<RoadmapScreen> {
             const SizedBox(height: 12),
             SketchButton(
               label: 'Return to White Space',
+              sound: UiSound.back,
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,

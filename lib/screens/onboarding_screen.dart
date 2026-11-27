@@ -3,34 +3,44 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../data/database_helper.dart';
+import '../services/sound_service.dart';
 import '../theme/omori_theme.dart';
 import '../widgets/sketchy_widgets.dart';
 import 'game_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final DateTime Function()? clock;
-
-  const OnboardingScreen({super.key, this.clock});
-
-  /// Returns a natural time-of-day phrase relative to the given [now] clock.
-  static String timeOfDayPhrase(DateTime now) {
-    final hour = now.hour;
-    if (hour >= 5 && hour < 12) return 'this morning';
-    if (hour >= 12 && hour < 17) return 'this afternoon';
-    if (hour >= 17 && hour < 21) return 'this evening';
-    return 'tonight';
-  }
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  static const List<String> _sexOptions = [
-    'Female',
-    'Male',
-    'Non-binary',
-    'Prefer not to say',
+  static const _sexOptions = [
+    (
+      value: 'Male',
+      label: 'Male',
+      icon: Icons.male_rounded,
+      color: Color(0xFF255C9F),
+    ),
+    (
+      value: 'Female',
+      label: 'Female',
+      icon: Icons.female_rounded,
+      color: Color(0xFFA13260),
+    ),
+    (
+      value: 'Non-binary',
+      label: 'Non-binary',
+      icon: null,
+      color: Color(0xFF6D438D),
+    ),
+    (
+      value: 'Prefer not to say',
+      label: 'Would rather not say',
+      icon: Icons.visibility_off_outlined,
+      color: Color(0xFF8C5C1A),
+    ),
   ];
 
   final _nameController = TextEditingController();
@@ -50,8 +60,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String get _playerName => _nameController.text.trim();
   int get _playerAge => int.tryParse(_ageController.text.trim()) ?? 21;
   String get _dreamSummary => _dreamController.text.trim();
-  String get _timeOfDay =>
-      OnboardingScreen.timeOfDayPhrase((widget.clock ?? DateTime.now)());
 
   @override
   void dispose() {
@@ -62,6 +70,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _handleBack() {
+    SoundService.playUi(UiSound.back);
     if (_wizardStep > 0) {
       setState(() {
         _errorText = null;
@@ -77,6 +86,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _errorText = null);
 
     if (_wizardStep == 0) {
+      SoundService.playUi(UiSound.advance);
       setState(() {
         _promptDone = false;
         _wizardStep = 1;
@@ -86,9 +96,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_wizardStep == 1) {
       if (_playerName.isEmpty) {
+        SoundService.playUi(UiSound.invalid);
         setState(() => _errorText = 'please write your name.');
         return;
       }
+      SoundService.playUi(UiSound.advance);
       setState(() {
         _promptDone = false;
         _wizardStep = 2;
@@ -98,9 +110,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_wizardStep == 2) {
       if (_selectedSex == null) {
+        SoundService.playUi(UiSound.invalid);
         setState(() => _errorText = 'please select an option.');
         return;
       }
+      SoundService.playUi(UiSound.advance);
       setState(() {
         _promptDone = false;
         _wizardStep = 3;
@@ -111,9 +125,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_wizardStep == 3) {
       final parsed = int.tryParse(_ageController.text.trim());
       if (parsed == null || parsed < 10 || parsed > 65) {
+        SoundService.playUi(UiSound.invalid);
         setState(() => _errorText = 'enter an age between 10 and 65.');
         return;
       }
+      SoundService.playUi(UiSound.advance);
       setState(() {
         _promptDone = false;
         _wizardStep = 4;
@@ -123,11 +139,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_wizardStep == 4) {
       if (_dreamSummary.length < 6) {
+        SoundService.playUi(UiSound.invalid);
         setState(
           () => _errorText = 'describe your dream self in a short sentence.',
         );
         return;
       }
+      SoundService.playUi(UiSound.confirm);
       await _submitForm();
     }
   }
@@ -165,11 +183,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _advanceBeat() {
     if (_introBeat < _introLines.length - 1) {
+      SoundService.playUi(UiSound.advance);
       setState(() {
         _cutsceneTextDone = false;
         _introBeat++;
       });
     } else if (_createdSessionId != null) {
+      SoundService.playUi(UiSound.confirm);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute<void>(
@@ -258,8 +278,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _wizardStep == 2 ? 16 : 30,
                       vertical: 24,
                     ),
                     child: ConstrainedBox(
@@ -396,47 +416,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             GradualReveal(
               visible: _promptDone,
               delay: const Duration(milliseconds: 140),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final option in _sexOptions)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedSex = option;
-                          _errorText = null;
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 11,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedSex == option
-                              ? OmoriColors.dreamIndigo
-                              : OmoriColors.pastelLavender.withValues(
-                                  alpha: 0.78,
-                                ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          option,
-                          style: OmoriTheme.hand(
-                            size: 19,
-                            weight: FontWeight.w700,
-                            color: _selectedSex == option
-                                ? OmoriColors.paper
-                                : OmoriColors.ink,
-                          ),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 8,
+                  children: [
+                    for (final option in _sexOptions)
+                      Expanded(
+                        child: _SexChoiceCard(
+                          label: option.label,
+                          icon: option.icon,
+                          color: option.color,
+                          selected: _selectedSex == option.value,
+                          onPressed: () {
+                            if (_selectedSex != option.value) {
+                              SoundService.playUi(UiSound.select);
+                            }
+                            setState(() {
+                              _selectedSex = option.value;
+                              _errorText = null;
+                            });
+                          },
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             if (_errorText != null) ...[
@@ -476,7 +480,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             TypewriterText(
               key: const ValueKey('tw_step_3'),
-              text: 'How old are you $_timeOfDay, $_playerName?',
+              text: 'How old are you, $_playerName?',
               textAlign: TextAlign.center,
               style: OmoriTheme.hand(size: 23, weight: FontWeight.w700),
               onCompleted: () {
@@ -872,4 +876,104 @@ class _RebirthBlueBurstPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RebirthBlueBurstPainter oldDelegate) =>
       oldDelegate.progress != progress;
+}
+
+class _SexChoiceCard extends StatelessWidget {
+  static const _symbolSize = 46.0;
+
+  final String label;
+  final IconData? icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  const _SexChoiceCard({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final symbolColor = selected
+        ? Color.lerp(color, OmoriColors.paper, 0.72)!
+        : color;
+    return Semantics(
+      selected: selected,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          enableFeedback: false,
+          alignment: Alignment.topCenter,
+          minimumSize: const Size(0, 144),
+          padding: const EdgeInsets.fromLTRB(5, 22, 5, 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          side: BorderSide(
+            color: selected ? OmoriColors.dreamIndigo : OmoriColors.subtleLine,
+          ),
+          backgroundColor: selected
+              ? OmoriColors.dreamIndigo
+              : OmoriColors.pastelLavender.withValues(alpha: 0.78),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: switch (icon) {
+                final symbol? => Icon(
+                  symbol,
+                  size: _symbolSize,
+                  color: symbolColor,
+                ),
+                null => CustomPaint(
+                  size: const Size.square(_symbolSize),
+                  painter: _NonBinarySymbolPainter(symbolColor),
+                ),
+              },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: OmoriTheme.hand(
+                size: 13,
+                height: 1.12,
+                weight: FontWeight.w700,
+                color: selected ? OmoriColors.paper : OmoriColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NonBinarySymbolPainter extends CustomPainter {
+  final Color color;
+
+  const _NonBinarySymbolPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24, size.height / 24);
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(const Offset(12, 15.5), 5.5, stroke);
+    canvas.drawLine(const Offset(12, 10), const Offset(12, 5.5), stroke);
+    canvas.drawLine(const Offset(9, 2.5), const Offset(15, 8.5), stroke);
+    canvas.drawLine(const Offset(15, 2.5), const Offset(9, 8.5), stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NonBinarySymbolPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
